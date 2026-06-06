@@ -1,6 +1,6 @@
-import React, { useRef, useMemo, useEffect } from 'react';
+import React, { useRef, useMemo, useEffect, useState } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
-import { OrbitControls, Instances, Instance } from '@react-three/drei';
+import { OrbitControls, Instances, Instance, Text, Billboard } from '@react-three/drei';
 import * as THREE from 'three';
 
 interface Particle {
@@ -28,16 +28,29 @@ interface ExplosionDebris {
   maxLife: number;
 }
 
+interface EnergyPopup {
+  id: number;
+  x: number;
+  y: number;
+  z: number;
+  energy: number;
+  life: number;
+}
+
 export function Particles3D({ 
     particlesRef, 
     debrisRef, 
+    popupsRef,
     width, 
-    height 
+    height,
+    autoRotate = false
 }: { 
     particlesRef: React.MutableRefObject<Particle[]>,
     debrisRef: React.MutableRefObject<ExplosionDebris[]>,
+    popupsRef?: React.MutableRefObject<EnergyPopup[]>,
     width: number,
-    height: number
+    height: number,
+    autoRotate?: boolean
 }) {
     return (
         <Canvas camera={{ position: [width / 2, height / 2, width * 1.5], fov: 60 }} className="w-full h-full">
@@ -46,10 +59,65 @@ export function Particles3D({
             
             <InstancedParticles particlesRef={particlesRef} width={width} height={height} />
             <InstancedDebris debrisRef={debrisRef} width={width} height={height} />
+            {popupsRef && <ActivePopups popupsRef={popupsRef} />}
             
-            <OrbitControls target={[width / 2, height / 2, 0]} enableDamping={true} />
+            <OrbitControls target={[width / 2, height / 2, 0]} enableDamping={true} autoRotate={autoRotate} autoRotateSpeed={2} />
             <BoxOutline width={width} height={height} />
         </Canvas>
+    );
+}
+
+function ActivePopups({ popupsRef }: { popupsRef: React.MutableRefObject<EnergyPopup[]> }) {
+    const [popups, setPopups] = useState<EnergyPopup[]>([]);
+    
+    useFrame(() => {
+        // Debounce state updates by only synchronizing length or new ids
+        if (popupsRef.current.length !== popups.length) {
+            setPopups([...popupsRef.current]);
+        }
+    });
+
+    return (
+        <>
+            {popups.map(p => (
+                <PopupItem key={p.id} popup={p} popupsRef={popupsRef} />
+            ))}
+        </>
+    );
+}
+
+function PopupItem({ popup, popupsRef }: { popup: EnergyPopup, popupsRef: React.MutableRefObject<EnergyPopup[]> }) {
+    const textRef = useRef<any>(null);
+    const billboardRef = useRef<any>(null);
+    
+    useFrame(() => {
+        if (!textRef.current || !billboardRef.current) return;
+        const current = popupsRef.current.find(p => p.id === popup.id);
+        if (current) {
+            billboardRef.current.position.set(current.x, current.y, current.z);
+            textRef.current.fillOpacity = Math.max(0, current.life);
+            textRef.current.outlineOpacity = Math.max(0, current.life);
+        } else {
+            textRef.current.fillOpacity = 0;
+            textRef.current.outlineOpacity = 0;
+        }
+    });
+
+    return (
+        <Billboard ref={billboardRef} position={[popup.x, popup.y, popup.z]}>
+            <Text
+                ref={textRef}
+                fontSize={16}
+                color="#f43f5e"
+                anchorX="center"
+                anchorY="middle"
+                outlineWidth={2}
+                outlineColor="#000000"
+                font="https://fonts.gstatic.com/s/jetbrainsmono/v18/tDbY2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKxTOlOV.woff"
+            >
+                {`+${(popup.energy * 10).toFixed(1)} kJ`}
+            </Text>
+        </Billboard>
     );
 }
 

@@ -1,11 +1,13 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Send, Play, RotateCcw, Thermometer, FlaskConical, Zap, Activity, MessageSquare, Menu, ClipboardList, ShieldAlert, ShieldCheck, Beaker, TrendingUp, Timer, ChevronDown } from 'lucide-react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { Send, Play, RotateCcw, Thermometer, FlaskConical, Zap, Activity, MessageSquare, Menu, ClipboardList, ShieldAlert, ShieldCheck, Beaker, TrendingUp, Timer, ChevronDown, Table, CheckCircle2, Rotate3D, MousePointer2, Square } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { Particles3D } from './components/Particles3D';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ReferenceDot } from 'recharts';
 import { driver } from 'driver.js';
 import 'driver.js/dist/driver.css';
 import { motion, AnimatePresence } from 'motion/react';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 const ExpandableAlat = ({ alatItem }: { alatItem: any }) => {
     const [isOpen, setIsOpen] = useState(false);
@@ -75,7 +77,7 @@ const BAHAN_KIMIA = [
         colorB: '#0ea5e9', 
         Ea: 50000, 
         catEa: 30000,
-        kalkulasi: (konsentrasi: number) => `${((konsentrasi * 100) / 9.8).toFixed(1)} mL larutan H₂O₂ pekat (30% / 9.8 M) untuk 100 mL larutan`,
+        kalkulasi: (konsentrasi: number) => `${((konsentrasi * 100) / 9.8).toFixed(2)} mL larutan H₂O₂ pekat (30% / 9.8 M) untuk 100 mL larutan`,
         alat: [
 
             { nama: 'Labu Erlenmeyer 250 mL', desc: 'Wadah reaktor utama untuk mencampur larutan.' },
@@ -120,7 +122,7 @@ const BAHAN_KIMIA = [
         colorB: '#94a3b8', 
         Ea: 45000, 
         catEa: 25000,
-        kalkulasi: (konsentrasi: number) => `${((konsentrasi * 100) / 12).toFixed(1)} mL pekat HCl (12 M) dilarutkan hingga 100 mL`,
+        kalkulasi: (konsentrasi: number) => `${((konsentrasi * 100) / 12).toFixed(2)} mL pekat HCl (12 M) dilarutkan hingga 100 mL`,
         alat: [
             { nama: 'Labu Erlenmeyer', desc: 'Wadah untuk mereaksikan padatan dan asam.' },
             { nama: 'Gelas Ukur 25 mL', desc: 'Untuk mengukur volume HCl.' },
@@ -142,7 +144,7 @@ const BAHAN_KIMIA = [
         colorB: '#94a3b8', 
         Ea: 48000, 
         catEa: 28000,
-        kalkulasi: (konsentrasi: number) => `${((konsentrasi * 100) / 12).toFixed(1)} mL pekat HCl (12 M) dilarutkan hingga 100 mL`,
+        kalkulasi: (konsentrasi: number) => `${((konsentrasi * 100) / 12).toFixed(2)} mL pekat HCl (12 M) dilarutkan hingga 100 mL`,
         alat: [
             { nama: 'Labu Erlenmeyer 250 mL', desc: 'Wadah reaktor utama untuk melarutkan serbuk/keping.' },
             { nama: 'Gelas Ukur 50 mL', desc: 'Mengambil volume HCl.' },
@@ -193,6 +195,15 @@ interface ExplosionDebris {
   maxLife: number;
 }
 
+interface EnergyPopup {
+  id: number;
+  x: number;
+  y: number;
+  z: number;
+  energy: number;
+  life: number;
+}
+
 const AnomalyDot = (props: any) => {
     const { cx, cy, payload, dataKey } = props;
     
@@ -207,7 +218,7 @@ const AnomalyDot = (props: any) => {
 };
 
 export default function App() {
-  const [suhu, setSuhu] = useState<number>(300);
+  const [suhu, setSuhu] = useState<number>(298);
   const [konsentrasi, setKonsentrasi] = useState<number>(0.5);
   const [katalis, setKatalis] = useState<boolean>(false);
   const [isReacting, setIsReacting] = useState<boolean>(false);
@@ -215,8 +226,10 @@ export default function App() {
   const [durasi, setDurasi] = useState<number>(0);
   const [ordoB, setOrdoB] = useState<number>(0);
   const [bahanKimia, setBahanKimia] = useState<string>('H2O2');
+  const [customEa, setCustomEa] = useState<number | null>(null);
   
   const [is3D, setIs3D] = useState<boolean>(false);
+  const [autoRotate3D, setAutoRotate3D] = useState<boolean>(true);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationRef = useRef<number | null>(null);
   const durationRef = useRef<number>(0);
@@ -226,6 +239,11 @@ export default function App() {
   }, [durasi]);
   const particlesRef = useRef<Particle[]>([]);
   const debrisRef = useRef<ExplosionDebris[]>([]);
+  const popupsRef = useRef<EnergyPopup[]>([]);
+  const popupIdCounterRef = useRef<number>(0);
+  const keBarRef = useRef<HTMLDivElement>(null);
+  const keTextRef = useRef<HTMLSpanElement>(null);
+  const lastKeUpdateTimeRef = useRef<number>(0);
   const collisionCountRef = useRef<number>(0);
   const effectiveCollisionCountRef = useRef<number>(0);
   const lastTimeRef = useRef<number>(0);
@@ -234,6 +252,7 @@ export default function App() {
 
   const [rateHistory, setRateHistory] = useState<{time: number, rate: number, simulatedRate: number}[]>([]);
   const timeStepRef = useRef<number>(0);
+  const totalCollisionsRef = useRef<number>(0);
   const lajuReaksiRef = useRef<number>(0);
 
   const processedHistory = React.useMemo(() => {
@@ -312,9 +331,11 @@ export default function App() {
   const [chatInput, setChatInput] = useState('');
   
   // Mobile UI state
-  const [activeMobileControl, setActiveMobileControl] = useState<'suhu' | 'konsentrasi' | 'katalis' | 'waktu' | 'ordo' | 'preset' | 'bahan'>('suhu');
+  const [activeMobileControl, setActiveMobileControl] = useState<'suhu' | 'konsentrasi' | 'katalis' | 'waktu' | 'ordo' | 'preset' | 'bahan' | 'ea'>('suhu');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showSOP, setShowSOP] = useState(true);
+  const [showDataModal, setShowDataModal] = useState(false);
+  const [showSummaryModal, setShowSummaryModal] = useState(false);
   
   const startTour = () => {
     localStorage.setItem('hasSeenTour', 'true');
@@ -332,6 +353,7 @@ export default function App() {
         { element: '#tour-simulation-view', popover: { title: 'Tumbukan Visual', description: 'Reaksi kimia disimulasikan secara real-time. Anda bisa memilih mode 2D atau 3D untuk melihat pergerakan partikel.', side: 'bottom' } },
         { element: '#tour-chart-energy', popover: { title: 'Grafik Energi', description: 'Melihat distribusi energi kinetik Maxwell-Boltzmann secara real-time berdasarkan suhu (T).', side: 'top' } },
         { element: '#tour-chart-rate', popover: { title: 'Laju Reaksi (v)', description: 'Memonitor laju reaksi teoretis vs hasil simulasi stokastik. Anda bisa melihat lonjakan data jika ada perubahan ekstrem.', side: 'top' } },
+        { element: '#tour-chart-temp', popover: { title: 'Korelasi Suhu & Laju', description: 'Memvisualisasikan pengaruh suhu terhadap laju reaksi secara teoretis.', side: 'top' } },
         { element: '#tour-chembot', popover: { title: 'ChemBot', description: 'Asisten cerdas yang siap membantu Anda dalam menganalisis data atau sekadar tanya jawab mengenai konsep kimia!', side: 'left', align: 'start' } },
       ]
     });
@@ -344,16 +366,47 @@ export default function App() {
       return v;
   };
 
-  const getKValue = (T: number, isCatalyzed: boolean, bahanId: string) => {
+  const getKValue = (T: number, isCatalyzed: boolean, bahanId: string, customEaVal: number | null) => {
       const bahan = BAHAN_KIMIA.find(b => b.id === bahanId) || BAHAN_KIMIA[0];
-      const Ea = isCatalyzed ? bahan.catEa : bahan.Ea; // Activation energy (J/mol)
+      let baseEa = customEaVal !== null ? customEaVal : bahan.Ea;
+      let finalEa = isCatalyzed ? (customEaVal !== null ? Math.max(1000, baseEa - 20000) : bahan.catEa) : baseEa;
+      
       const R = 8.314; // Gas constant 
       const A = 1e6; // Pre-exponential factor
-      return A * Math.exp(-Ea / (R * T));
+      return A * Math.exp(-finalEa / (R * T));
   };
 
-  const k_val = getKValue(suhu, katalis, bahanKimia);
+  const k_val = getKValue(suhu, katalis, bahanKimia, customEa);
   const lajuReaksi = hitungLajuReaksi(k_val, konsentrasi, 1, konsentrasi, ordoB); // using cB=konsentrasi, n=ordoB
+
+  const temperatureRateData = useMemo(() => {
+      const data = [];
+      const R = 8.314;
+      const A = 1e6;
+      const bahan = BAHAN_KIMIA.find(b => b.id === bahanKimia) || BAHAN_KIMIA[0];
+      
+      let baseEa = customEa !== null ? customEa : bahan.Ea;
+      let finalEa = katalis ? (customEa !== null ? Math.max(1000, baseEa - 20000) : bahan.catEa) : baseEa;
+          
+      for(let t = 273; t <= 373; t += 5) {
+          let kTemp = A * Math.exp(-finalEa / (R * t));
+          let rateTemp = hitungLajuReaksi(kTemp, konsentrasi, 1, konsentrasi, ordoB);
+          
+          data.push({
+              suhu: t,
+              laju: rateTemp
+          });
+      }
+      
+      if (suhu % 5 !== 0 && suhu >= 273 && suhu <= 373) {
+          data.push({
+              suhu: suhu,
+              laju: lajuReaksi
+          });
+          data.sort((a, b) => a.suhu - b.suhu);
+      }
+      return data;
+  }, [katalis, bahanKimia, customEa, konsentrasi, ordoB, suhu, lajuReaksi]);
 
   useEffect(() => {
       lajuReaksiRef.current = lajuReaksi;
@@ -545,10 +598,20 @@ export default function App() {
                       p1.flashTimer = 20; // frames to glow
                       p2.flashTimer = 20;
                       
-                      // Generate small explosion debris
                       const centerX = (p1.x + p2.x) / 2;
                       const centerY = (p1.y + p2.y) / 2;
                       const centerZ = (p1.z + p2.z) / 2;
+                      
+                      popupsRef.current.push({
+                          id: popupIdCounterRef.current++,
+                          x: centerX,
+                          y: centerY,
+                          z: centerZ,
+                          energy: collisionEnergySq,
+                          life: 1.0
+                      });
+                      
+                      // Generate small explosion debris
                       for (let k = 0; k < 5; k++) {
                           debrisRef.current.push({
                               x: centerX,
@@ -682,12 +745,41 @@ export default function App() {
             debrisRef.current.splice(i, 1);
         }
     }
+    
+    // Handle energy popups
+    for (let i = popupsRef.current.length - 1; i >= 0; i--) {
+        const popup = popupsRef.current[i];
+        popup.life -= 0.02; // Fade out speed
+        popup.y -= 0.5; // Float up
+        
+        if (popup.life <= 0) {
+            popupsRef.current.splice(i, 1);
+            continue;
+        }
+
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, popup.life);
+        ctx.fillStyle = '#f43f5e'; // Rose 500
+        const scale = 1 + (1 - popup.life) * 0.5;
+        const fontSize = 12 * Math.max(1, scale * 0.8);
+        ctx.font = `bold ${fontSize}px monospace`;
+        ctx.textAlign = 'center';
+        ctx.shadowColor = 'rgba(0,0,0,0.8)';
+        ctx.shadowBlur = 4;
+        ctx.shadowOffsetX = 1;
+        ctx.shadowOffsetY = 1;
+        ctx.fillText(`+${(popup.energy * 10).toFixed(2)} kJ`, popup.x, popup.y);
+        ctx.restore();
+    }
   }
 
   const hentikanSimulasi = () => {
     setIsReacting(false);
     if (animationRef.current) {
         cancelAnimationFrame(animationRef.current);
+    }
+    if (timeStepRef.current > 0) {
+        setShowSummaryModal(true);
     }
   };
 
@@ -699,6 +791,7 @@ export default function App() {
         setCollisionsPerSecond(collisionCountRef.current);
         
         timeStepRef.current += 1;
+        totalCollisionsRef.current += effectiveCollisionCountRef.current;
         setRateHistory(prev => {
             const newHistory = [...prev, { 
                 time: timeStepRef.current, 
@@ -722,6 +815,36 @@ export default function App() {
     }
 
     updateParticles();
+    
+    // Update KE Bar every ~100ms
+    if (time - lastKeUpdateTimeRef.current > 100) {
+        lastKeUpdateTimeRef.current = time;
+        if (keBarRef.current && keTextRef.current && particlesRef.current.length > 0) {
+            let totalSq = 0;
+            for(let i=0; i < particlesRef.current.length; i++) {
+               const p = particlesRef.current[i];
+               totalSq += p.vx*p.vx + p.vy*p.vy + (p.vz !== undefined ? p.vz*p.vz : 0);
+            }
+            const avgSq = totalSq / particlesRef.current.length;
+            const avgCollisionEnergy = avgSq * 2; // Approximated average relative collision energy
+
+            const bahan = BAHAN_KIMIA.find(b => b.id === bahanRef.current) || BAHAN_KIMIA[0];
+            const eaValue = katalisRef.current ? bahan.catEa : bahan.Ea;
+            const eaThreshold = (eaValue / 50000) * 45.0;
+
+            const ratio = Math.min(1, avgCollisionEnergy / eaThreshold);
+            keBarRef.current.style.height = `${ratio * 100}%`;
+            
+            // Color mapping: Blue -> Amber -> Emerald (when it exceeds threshold)
+            let color = '#3b82f6'; // Blue for cold/low energy
+            if (ratio > 0.8 && ratio < 1) color = '#f59e0b'; // Amber when nearing threshold
+            else if (ratio >= 1) color = '#10b981'; // Emerald when crossing
+
+            keBarRef.current.style.backgroundColor = color;
+            keTextRef.current.innerText = `${avgCollisionEnergy.toFixed(2)} / ${eaThreshold.toFixed(2)}`;
+        }
+    }
+    
     drawParticles();
     animationRef.current = requestAnimationFrame(animate);
   }
@@ -739,7 +862,9 @@ export default function App() {
     lastTimeRef.current = performance.now();
     setRateHistory([]);
     timeStepRef.current = 0;
+    totalCollisionsRef.current = 0;
     debrisRef.current = [];
+    popupsRef.current = [];
     
     // Slight delay to allow layout shifts if any
     setTimeout(() => {
@@ -760,11 +885,95 @@ export default function App() {
     setRateHistory([]);
     timeStepRef.current = 0;
     debrisRef.current = [];
+    popupsRef.current = [];
     
     const canvas = canvasRef.current;
     if (canvas) {
         const ctx = canvas.getContext('2d');
         if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+  };
+
+  const unduhLaporan = () => {
+    const bahan = BAHAN_KIMIA.find(b => b.id === bahanKimia) || BAHAN_KIMIA[0];
+    const isKatalis = katalisRef.current;
+    const eaUsed = isKatalis 
+        ? (customEa !== null ? Math.max(1000, customEa - 20000) : bahan.catEa)
+        : (customEa !== null ? customEa : bahan.Ea);
+
+    const doc = new jsPDF();
+    
+    // Header
+    doc.setFontSize(16);
+    doc.setFont("helvetica", "bold");
+    doc.text("HASIL PRAKTIKUM LAJU REAKSI", 105, 20, { align: "center" });
+    
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Reaksi: ${bahan.nama} - ${bahan.desc}`, 15, 35);
+    doc.text(`Suhu: ${suhu} K`, 15, 42);
+    doc.text(`Konsentrasi Awal: ${konsentrasi} M`, 15, 49);
+    doc.text(`Katalis: ${isKatalis ? 'Aktif' : 'Tidak Aktif'}`, 15, 56);
+    doc.text(`Energi Aktivasi (Ea): ${(eaUsed / 1000).toFixed(2)} kJ/mol`, 15, 63);
+
+    doc.setFont("helvetica", "bold");
+    doc.text("RINGKASAN HASIL:", 15, 75);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Durasi Total: ${timeStepRef.current} s`, 15, 82);
+    doc.text(`Tumbukan Efektif: ${totalCollisionsRef.current}`, 15, 89);
+    
+    const avgGalat = rateHistory.length > 0 ? rateHistory.reduce((acc, curr) => {
+        const expected = hitungLajuReaksi(k_val, konsentrasi, 1, konsentrasi, ordoB);
+        const actual = curr.rate;
+        let g = Math.abs((actual - expected) / expected) * 100;
+        if (isNaN(g) || !isFinite(g)) g = 0;
+        return acc + g;
+    }, 0) / rateHistory.length : 0;
+    
+    doc.text(`Rata-rata Galat: ${avgGalat.toFixed(2)}%`, 15, 96);
+    doc.text(`Efisiensi Reaksi: ${Math.max(0, 100 - avgGalat).toFixed(2)}%`, 15, 103);
+
+    doc.setFont("helvetica", "bold");
+    doc.text("PENJELASAN PRAKTIKUM:", 15, 115);
+    doc.setFont("helvetica", "normal");
+    
+    let yPos = 122;
+    const splitExplanation = doc.splitTextToSize("Praktikum ini mensimulasikan teori tumbukan (collision theory) dalam kinetika kimia. Laju reaksi (M/s) sebanding dengan frekuensi tumbukan efektif antar partikel reaktan. Sebuah tumbukan dikatakan 'efektif' apabila partikel bertumbukan dengan energi kinetik yang lebih besar atau sama dengan Energi Aktivasi (Ea). Kenaikan suhu akan meningkatkan energi kinetik rata-rata partikel, sehingga lebih banyak tumbukan yang mampu melampaui Ea.", 180);
+    doc.text(splitExplanation, 15, yPos);
+    
+    yPos += splitExplanation.length * 5 + 5;
+    
+    if (isKatalis) {
+        const splitCatalyst = doc.splitTextToSize("Penambahan katalis terlihat menurunkan hambatan Energi Aktivasi (Ea), sehingga jumlah tumbukan efektif dan laju reaksi meningkat drastis dibandingkan tanpa katalis.", 180);
+        doc.text(splitCatalyst, 15, yPos);
+        yPos += splitCatalyst.length * 5 + 5;
+    }
+
+    doc.setFont("helvetica", "bold");
+    doc.text("DATA TABULASI WAKTU vs LAJU:", 15, yPos + 5);
+    
+    const tableData = rateHistory.map(item => {
+        const tRate = hitungLajuReaksi(k_val, konsentrasi, 1, konsentrasi, ordoB);
+        return [
+            item.time.toString(), 
+            tRate.toExponential(3), 
+            item.rate.toExponential(3)
+        ];
+    });
+
+    autoTable(doc, {
+        startY: yPos + 10,
+        head: [['Waktu (s)', 'Laju Teoretis (M/s)', 'Laju Simulasi (M/s)']],
+        body: tableData,
+    });
+
+    try {
+        doc.save(`Hasil_Praktikum_Laju_Reaksi_${bahan.id}.pdf`);
+    } catch (err) {
+        // Fallback for iframe restrictions
+        const pdfBlob = doc.output('blob');
+        const url = URL.createObjectURL(pdfBlob);
+        window.open(url, '_blank');
     }
   };
 
@@ -786,7 +995,7 @@ export default function App() {
         const response = await fetch('/api/chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ message: userMessage, history: historyForApi, simulationState: { suhu, konsentrasi, katalis, lajuReaksi, bahanKimia: activeBahan.nama } })
+            body: JSON.stringify({ message: userMessage, history: historyForApi, simulationState: { suhu, konsentrasi, katalis, lajuReaksi, bahanKimia: activeBahan.nama, ordoB, customEa, k_val } })
         });
         
         if (response.ok) {
@@ -804,9 +1013,13 @@ export default function App() {
   }
 
   return (
-    <div className="w-full min-h-screen bg-slate-50 p-4 lg:p-6 font-sans text-slate-900 flex flex-col gap-4 overflow-y-auto select-none">
+    <div className="w-full min-h-screen bg-slate-50 p-4 lg:p-6 font-sans text-slate-900 flex flex-col gap-4 overflow-y-auto select-none relative sm:bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] sm:from-slate-50 sm:via-slate-100 sm:to-indigo-50/20">
+        {/* Background ambient shapes */}
+        <div className="fixed top-0 right-0 w-[500px] h-[500px] bg-indigo-500/5 rounded-full blur-3xl pointer-events-none -z-10 translate-x-1/2 -translate-y-1/2 opacity-50"></div>
+        <div className="fixed bottom-0 left-0 w-[400px] h-[400px] bg-emerald-500/5 rounded-full blur-3xl pointer-events-none -z-10 -translate-x-1/2 translate-y-1/2 opacity-50"></div>
+        
         {/* Header Section */}
-        <header className="shrink-0 flex justify-between items-center bg-white border border-slate-200 p-4 px-6 rounded-2xl shadow-sm">
+        <header className="shrink-0 flex justify-between items-center bg-white/70 backdrop-blur-xl border border-slate-200/60 p-4 px-6 rounded-3xl shadow-lg shadow-slate-200/40 relative z-10 transition-all duration-300">
             <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-inner">
                     <FlaskConical className="w-6 h-6 text-white" strokeWidth={2.5} />
@@ -841,10 +1054,10 @@ export default function App() {
             </div>
         )}
 
-        <main className="flex-1 grid grid-cols-1 lg:grid-cols-12 lg:grid-rows-6 gap-4 lg:min-h-[700px]">
+        <main className="flex-1 grid grid-cols-1 lg:grid-cols-12 lg:grid-rows-6 gap-4 lg:min-h-[700px] relative z-10">
             {/* Left: Control Panel */}
-            <section id="tour-control-panel" className="lg:col-span-3 lg:row-span-6 bg-white border border-slate-200 p-6 rounded-2xl shadow-sm flex flex-col gap-6 overflow-y-auto">
-                <div className="flex items-center justify-between mb-2 pb-4 border-b border-slate-100">
+            <section id="tour-control-panel" className="lg:col-span-3 lg:row-span-6 bg-white/70 backdrop-blur-xl border border-slate-200/60 p-6 rounded-3xl shadow-xl shadow-slate-200/40 flex flex-col gap-6 overflow-y-auto transition-all duration-300 hover:shadow-indigo-100/40">
+                <div className="flex items-center justify-between mb-2 pb-4 border-b border-slate-100/50">
                     <div className="flex items-center gap-2">
                         <div className="w-2 h-2 rounded-full bg-slate-400"></div>
                         <h2 className="text-sm font-bold uppercase tracking-widest text-slate-800">Control Panel</h2>
@@ -854,7 +1067,7 @@ export default function App() {
                     </button>
                 </div>
                 
-                <div className="grid grid-cols-3 bg-slate-100 p-1.5 rounded-xl gap-1.5 border border-slate-200">
+                <div className="grid grid-cols-4 bg-slate-100 p-1.5 rounded-xl gap-1.5 border border-slate-200">
                     <button 
                         onClick={() => setActiveMobileControl('suhu')}
                         className={`py-2 px-1 rounded-lg text-[10px] font-bold uppercase tracking-wider flex flex-col items-center justify-center gap-1.5 transition-all ${activeMobileControl === 'suhu' ? 'bg-white text-amber-600 shadow-sm border border-slate-200/50' : 'text-slate-500 hover:bg-white/50'}`}
@@ -872,6 +1085,12 @@ export default function App() {
                         className={`py-2 px-1 rounded-lg text-[10px] font-bold uppercase tracking-wider flex flex-col items-center justify-center gap-1.5 transition-all ${activeMobileControl === 'katalis' ? 'bg-white text-emerald-600 shadow-sm border border-slate-200/50' : 'text-slate-500 hover:bg-white/50'}`}
                     >
                         <Zap className="w-4 h-4" /> Katalis
+                    </button>
+                    <button 
+                        onClick={() => setActiveMobileControl('ea')}
+                        className={`py-2 px-1 rounded-lg text-[10px] font-bold uppercase tracking-wider flex flex-col items-center justify-center gap-1.5 transition-all ${activeMobileControl === 'ea' ? 'bg-white text-rose-600 shadow-sm border border-slate-200/50' : 'text-slate-500 hover:bg-white/50'}`}
+                    >
+                        <TrendingUp className="w-4 h-4" /> Ea
                     </button>
                     <button 
                         onClick={() => setActiveMobileControl('waktu')}
@@ -893,7 +1112,7 @@ export default function App() {
                     </button>
                     <button 
                         onClick={() => setActiveMobileControl('preset')}
-                        className={`col-span-3 py-2 px-1 rounded-lg text-[10px] font-bold uppercase tracking-wider flex flex-col items-center justify-center gap-1.5 transition-all ${activeMobileControl === 'preset' ? 'bg-white text-cyan-600 shadow-sm border border-slate-200/50' : 'text-slate-500 hover:bg-white/50'}`}
+                        className={`py-2 px-1 rounded-lg text-[10px] font-bold uppercase tracking-wider flex flex-col items-center justify-center gap-1.5 transition-all ${activeMobileControl === 'preset' ? 'bg-white text-cyan-600 shadow-sm border border-slate-200/50' : 'text-slate-500 hover:bg-white/50'}`}
                     >
                         <Beaker className="w-4 h-4" /> Preset
                     </button>
@@ -909,8 +1128,9 @@ export default function App() {
                         </div>
                         <input 
                             type="range" 
-                            min="200" 
-                            max="1000" 
+                            min="273" 
+                            max="373" 
+                            step="1"
                             value={suhu}
                             onChange={(e) => setSuhu(Number(e.target.value))}
                             className="w-full h-2.5 bg-slate-100 rounded-full appearance-none cursor-pointer border border-slate-200 accent-amber-500" 
@@ -926,12 +1146,12 @@ export default function App() {
                             <label className="flex items-center gap-1.5 text-xs font-bold uppercase text-slate-500">
                                 <FlaskConical className="w-4 h-4 text-indigo-500" /> Pipet Reaktan (M)
                             </label>
-                            <span className="font-mono font-bold text-lg text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-lg border border-indigo-100">{konsentrasi.toFixed(1)}M</span>
+                            <span className="font-mono font-bold text-lg text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-lg border border-indigo-100">{konsentrasi.toFixed(2)}M</span>
                         </div>
                          <input 
                             type="range" 
                             min="0.1" 
-                            max="2.0" 
+                            max="3.0" 
                             step="0.1" 
                             value={konsentrasi}
                             onChange={(e) => setKonsentrasi(Number(e.target.value))}
@@ -966,30 +1186,56 @@ export default function App() {
                         </button>
                     </div>
 
-                    <div className={activeMobileControl === 'waktu' ? 'block space-y-3 pt-2' : 'hidden'}>
-                        <div className="flex justify-between items-center">
+                    <div className={activeMobileControl === 'ea' ? 'block space-y-3 pt-2' : 'hidden'}>
+                        <div className="flex justify-between items-end">
                             <label className="flex items-center gap-1.5 text-xs font-bold uppercase text-slate-500">
-                                <Timer className="w-4 h-4 text-pink-500" /> Durasi Simulasi
+                                <TrendingUp className="w-4 h-4 text-rose-500" /> Energi Aktivasi (Ea)
                             </label>
-                            <span className="font-mono text-[10px] font-bold px-2 py-1 rounded-md border border-slate-200 text-slate-500 bg-slate-50">
-                                {durasi === 0 ? 'TANPA BATAS' : `${durasi}s`}
-                            </span>
+                            <span className="font-mono font-bold text-lg text-rose-600 bg-rose-50 px-2 py-0.5 rounded-lg border border-rose-100">{((customEa !== null ? customEa : activeBahanData.Ea) / 1000).toFixed(2)} kJ</span>
                         </div>
-                        <div className="grid grid-cols-4 gap-2 pt-1">
-                            {[0, 10, 30, 60].map(val => (
-                                <button
-                                    key={val}
-                                    disabled={isReacting}
-                                    onClick={() => setDurasi(val)}
-                                    className={`py-2 text-[10px] font-bold rounded-lg border transition-all ${
-                                        durasi === val 
-                                        ? 'bg-pink-50 text-pink-600 border-pink-200 shadow-sm' 
-                                        : 'bg-white text-slate-500 border-slate-200 hover:border-pink-300 disabled:opacity-50'
-                                    }`}
-                                >
-                                    {val === 0 ? '∞' : `${val}s`}
-                                </button>
-                            ))}
+                        <input 
+                            type="range" 
+                            min="20000" 
+                            max="100000" 
+                            step="1000" 
+                            value={customEa !== null ? customEa : activeBahanData.Ea} 
+                            onChange={(e) => setCustomEa(Number(e.target.value))}
+                            disabled={isReacting}
+                            className="w-full h-2.5 bg-slate-100 rounded-full appearance-none cursor-pointer border border-slate-200 accent-rose-500 disabled:opacity-50" 
+                        />
+                         <div className="flex justify-between text-xs font-medium text-slate-400 font-mono">
+                            <span>20 kJ (Min)</span>
+                            <span>100 kJ (Maks)</span>
+                        </div>
+                        <button 
+                            disabled={isReacting || customEa === null}
+                            onClick={() => setCustomEa(null)}
+                            className="w-full py-2 border rounded-xl font-bold uppercase text-[10px] text-slate-500 hover:bg-slate-50 disabled:opacity-50 mt-1"
+                        >
+                            Reset ke Default Bahan ({ (activeBahanData.Ea / 1000).toFixed(2) } kJ)
+                        </button>
+                    </div>
+
+                    <div className={activeMobileControl === 'waktu' ? 'block space-y-3 pt-2' : 'hidden'}>
+                        <div className="flex justify-between items-end">
+                            <label className="flex items-center gap-1.5 text-xs font-bold uppercase text-slate-500">
+                                <Timer className="w-4 h-4 text-pink-500" /> Durasi Simulasi (s)
+                            </label>
+                            <span className="font-mono font-bold text-lg text-pink-600 bg-pink-50 px-2 py-0.5 rounded-lg border border-pink-100">{durasi === 0 ? '∞' : `${durasi}s`}</span>
+                        </div>
+                        <input 
+                            type="range" 
+                            min="0" 
+                            max="60" 
+                            step="1" 
+                            value={durasi} 
+                            onChange={(e) => setDurasi(Number(e.target.value))}
+                            disabled={isReacting}
+                            className="w-full h-2.5 bg-slate-100 rounded-full appearance-none cursor-pointer border border-slate-200 accent-pink-500 disabled:opacity-50" 
+                        />
+                         <div className="flex justify-between text-xs font-medium text-slate-400 font-mono">
+                            <span>0s (Tanpa Batas)</span>
+                            <span>60s (Maks)</span>
                         </div>
                     </div>
 
@@ -1029,6 +1275,7 @@ export default function App() {
                                     key={bahan.id}
                                     onClick={() => {
                                         setBahanKimia(bahan.id);
+                                        setCustomEa(null);
                                         setShowSOP(true);
                                     }}
                                     className={`w-full text-left p-2.5 rounded-xl border transition-all group ${
@@ -1050,38 +1297,49 @@ export default function App() {
                         </div>
                         <div className="flex flex-col gap-2">
                             <button 
-                                onClick={() => { setSuhu(300); setKonsentrasi(0.5); setKatalis(false); setOrdoB(0); setBahanKimia('Na2S2O3'); }}
+                                onClick={() => { setSuhu(298); setKonsentrasi(0.5); setKatalis(false); setOrdoB(0); setBahanKimia('Na2S2O3'); setCustomEa(null); }}
                                 className="w-full text-left p-2.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-cyan-50 hover:border-cyan-200 hover:text-cyan-700 transition-all group"
                             >
                                 <div className="text-xs font-bold text-slate-700 group-hover:text-cyan-700">Lambat (Natrium Tiosulfat)</div>
-                                <div className="text-[10px] text-slate-500 font-mono mt-1">300K | 0.5M | No Cat | Ordo 0</div>
+                                <div className="text-[10px] text-slate-500 font-mono mt-1">298K | 0.5M | No Cat | Ordo 0</div>
                             </button>
                             <button 
-                                onClick={() => { setSuhu(800); setKonsentrasi(1.5); setKatalis(true); setOrdoB(1); setBahanKimia('H2O2'); }}
+                                onClick={() => { setSuhu(323); setKonsentrasi(1.5); setKatalis(true); setOrdoB(1); setBahanKimia('H2O2'); setCustomEa(null); }}
                                 className="w-full text-left p-2.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-orange-50 hover:border-orange-200 hover:text-orange-700 transition-all group"
                             >
                                 <div className="text-xs font-bold text-slate-700 group-hover:text-orange-700">Dekomposisi Cepat H₂O₂</div>
-                                <div className="text-[10px] text-slate-500 font-mono mt-1">800K | 1.5M | +Catalyst | Ordo 1</div>
+                                <div className="text-[10px] text-slate-500 font-mono mt-1">323K | 1.5M | +Catalyst | Ordo 1</div>
                             </button>
                             <button 
-                                onClick={() => { setSuhu(400); setKonsentrasi(1.0); setKatalis(true); setOrdoB(2); setBahanKimia('KMnO4'); }}
+                                onClick={() => { setSuhu(343); setKonsentrasi(1.0); setKatalis(true); setOrdoB(2); setBahanKimia('KMnO4'); setCustomEa(null); }}
                                 className="w-full text-left p-2.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-emerald-50 hover:border-emerald-200 hover:text-emerald-700 transition-all group"
                             >
                                 <div className="text-xs font-bold text-slate-700 group-hover:text-emerald-700">Autokatalitik (KMnO₄)</div>
-                                <div className="text-[10px] text-slate-500 font-mono mt-1">400K | 1.0M | +Catalyst | Ordo 2</div>
+                                <div className="text-[10px] text-slate-500 font-mono mt-1">343K | 1.0M | +Catalyst | Ordo 2</div>
                             </button>
                         </div>
                     </div>
                 </div>
 
                 <div className="mt-auto flex flex-col gap-3 pt-6 border-t border-slate-100">
-                    <button 
-                        onClick={jalankanReaksi}
-                        className="w-full bg-indigo-600 hover:bg-indigo-700 flex items-center justify-center gap-2 text-white font-bold py-3.5 rounded-xl transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] uppercase tracking-wide text-sm"
-                    >
-                        <Play className="w-5 h-5 fill-current" />
-                        {isReacting ? 'Mulai Ulang' : 'Mulai Reaksi'}
-                    </button>
+                    <div className="flex gap-2">
+                        <button 
+                            onClick={jalankanReaksi}
+                            className={`bg-indigo-600 hover:bg-indigo-700 flex flex-1 items-center justify-center gap-2 text-white font-bold py-3.5 rounded-xl transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] uppercase tracking-wide text-sm`}
+                        >
+                            <Play className="w-5 h-5 fill-current" />
+                            {isReacting ? 'Ulang' : 'Mulai Reaksi'}
+                        </button>
+                        {isReacting && (
+                            <button
+                                onClick={hentikanSimulasi}
+                                className="bg-rose-500 hover:bg-rose-600 flex flex-1 items-center justify-center gap-2 text-white font-bold py-3.5 rounded-xl transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] uppercase tracking-wide text-sm"
+                            >
+                                <Square className="w-4 h-4 fill-current" />
+                                Stop
+                            </button>
+                        )}
+                    </div>
                     <button 
                         onClick={resetSimulasi}
                         className="w-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center gap-2 font-bold py-3.5 rounded-xl transition-all active:scale-[0.98] uppercase tracking-wide text-sm"
@@ -1093,10 +1351,10 @@ export default function App() {
             </section>
 
             {/* Center: Simulation View */}
-            <section id="tour-simulation-view" className="lg:col-span-6 lg:row-span-4 bg-slate-900 border border-slate-800 rounded-2xl shadow-inner flex flex-col min-h-[300px] relative overflow-hidden group">
+            <section id="tour-simulation-view" className="lg:col-span-6 lg:row-span-4 bg-[#0f172a] border border-slate-800/80 rounded-3xl shadow-[inset_0_2px_20px_rgba(0,0,0,0.5),0_10px_30px_rgba(0,0,0,0.15)] flex flex-col min-h-[300px] relative overflow-hidden group hover:ring-1 hover:ring-indigo-500/30 transition-all duration-500">
                 <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-transparent via-indigo-500/20 to-transparent"></div>
                 
-                {/* Waktu Overlay */}
+                {/* Waktu Overlay & 3D button */}
                 <div className="absolute top-4 right-4 z-20 flex gap-2">
                     <button 
                         onClick={() => setIs3D(!is3D)}
@@ -1104,15 +1362,51 @@ export default function App() {
                     >
                         3D View
                     </button>
-                    <div className="bg-slate-800/80 backdrop-blur-md border border-slate-700/50 rounded-lg px-3 py-1.5 flex items-center gap-2 text-xs font-mono font-bold text-slate-300 shadow-lg">
+                    {(isReacting || rateHistory.length > 0) && (
+                    <div className="bg-slate-800/80 backdrop-blur-md border border-slate-700/50 rounded-lg px-3 py-1.5 flex items-center gap-2 text-xs font-mono font-bold text-slate-300 shadow-lg animate-in fade-in duration-500">
                         <Timer className="w-3.5 h-3.5 text-pink-400" />
                         <span>{rateHistory.length > 0 ? rateHistory[rateHistory.length - 1].time : 0}s {durasi > 0 && <span className="text-slate-500 font-normal">/ {durasi}s</span>}</span>
                     </div>
+                    )}
                 </div>
 
                 <div className="w-full h-full flex items-center justify-center relative">
+                    <div 
+                        className={`absolute bottom-0 inset-x-0 w-full rounded-2xl transition-all duration-[2000ms] ease-in-out z-0`}
+                        style={{
+                            height: isReacting || rateHistory.length > 0 ? '100%' : '0%',
+                            opacity: isReacting || rateHistory.length > 0 ? 0.3 : 0,
+                            background: `linear-gradient(to top, ${activeBahanData.colorA}, transparent)`
+                        }}
+                    >
+                        <div className="absolute inset-0 bg-white/20 animate-pulse border-t border-white/40"></div>
+                        <div className="absolute inset-0 overflow-hidden rounded-2xl">
+                            <div className="absolute bottom-0 left-0 w-[200%] h-12 bg-gradient-to-t from-transparent to-white/10 opacity-50 animate-[wave_4s_linear_infinite] [mask-image:linear-gradient(to_bottom,black,transparent)]"></div>
+                        </div>
+                    </div>
+
+                    {/* Falling Powder (Serbuk Padatan) */}
+                    {(isReacting || rateHistory.length > 0) && (
+                        <div className="absolute inset-0 overflow-hidden rounded-2xl pointer-events-none z-10">
+                            {Array.from({ length: 40 }).map((_, i) => (
+                                <div
+                                    key={`powder-${i}`}
+                                    className="absolute bottom-0 opacity-0 bg-slate-600 rounded-sm"
+                                    style={{
+                                        left: `${10 + Math.random() * 80}%`,
+                                        width: `${Math.random() * 4 + 2}px`,
+                                        height: `${Math.random() * 4 + 2}px`,
+                                        bottom: `${Math.random() * 15 + 5}px`,
+                                        animation: `fall 1s cubic-bezier(0.25, 0.46, 0.45, 0.94) ${Math.random() * 0.5}s forwards${isReacting ? `, dissolve 4s ease-in ${1 + Math.random() * 8}s forwards` : ''}`
+                                    }}
+                                />
+                            ))}
+                        </div>
+                    )}
+
                     <canvas 
                         ref={canvasRef} 
+
                         className={`w-full h-full object-cover z-0 rounded-2xl transition-opacity ${is3D ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
                     />
                     
@@ -1120,14 +1414,29 @@ export default function App() {
                         <div className="absolute inset-0 z-0">
                             <Particles3D 
                                 particlesRef={particlesRef} 
-                                debrisRef={debrisRef} 
+                                debrisRef={debrisRef}
+                                popupsRef={popupsRef}
                                 width={canvasRef.current?.width || 500} 
                                 height={canvasRef.current?.height || 300} 
+                                autoRotate={autoRotate3D}
                             />
+                            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-3 bg-slate-800/80 backdrop-blur-md px-4 py-2 rounded-full border border-slate-700 shadow-xl z-30 animate-in slide-in-from-bottom-4">
+                                <div className="flex items-center gap-2 text-xs font-mono text-slate-300 border-r border-slate-600 pr-3">
+                                    <MousePointer2 className="w-3.5 h-3.5 text-indigo-400" />
+                                    <span>Drag: Rotate • Scroll: Zoom</span>
+                                </div>
+                                <button
+                                    onClick={() => setAutoRotate3D(!autoRotate3D)}
+                                    className={`flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider px-2 py-1 rounded-md transition-colors ${autoRotate3D ? 'text-emerald-400 bg-emerald-400/10' : 'text-slate-400 hover:text-white hover:bg-slate-700'}`}
+                                >
+                                    <Rotate3D className={`w-3.5 h-3.5 ${autoRotate3D ? 'animate-spin-slow' : ''}`} />
+                                    Auto
+                                </button>
+                            </div>
                         </div>
                     )}
                     
-                    {!isReacting && (
+                    {(!isReacting && rateHistory.length === 0) && (
                         <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-400 font-mono bg-slate-900/60 z-10 transition-opacity rounded-2xl backdrop-blur-sm">
                             <p className="text-sm px-6 py-3 rounded-xl border border-slate-700 bg-slate-800/80 shadow-xl flex items-center gap-3">
                                 <span className="w-2 h-2 rounded-full bg-slate-500 animate-pulse"></span>
@@ -1136,35 +1445,53 @@ export default function App() {
                         </div>
                     )}
 
-                    {/* pH Indicator */}
-                    <div className="absolute bottom-5 left-5 z-20 flex items-end gap-2 group/ph">
-                        <div className={`p-0.5 rounded-lg bg-gradient-to-br shadow-lg flex flex-col items-center justify-center transition-all duration-500 border border-white/20 hover:scale-105 cursor-default ${getPHColor(currentPH)}`}>
-                            <div className="px-2 py-1.5 flex flex-col items-center justify-center min-w-[36px]">
-                                <span className="text-[9px] font-bold opacity-80 mb-0.5">pH</span>
-                                <span className="font-mono text-sm font-black tracking-tighter leading-none">{currentPH.toFixed(1)}</span>
+                    {/* pH Indicator & KE Bar */}
+                    {(isReacting || rateHistory.length > 0) && (
+                    <div className="absolute bottom-5 left-5 z-20 flex items-end gap-3 animate-in fade-in zoom-in-95 duration-500">
+                        {/* pH part */}
+                        <div className="flex items-end gap-2 group/ph">
+                            <div className={`p-0.5 rounded-lg bg-gradient-to-br shadow-lg flex flex-col items-center justify-center transition-all duration-500 border border-white/20 hover:scale-105 cursor-default ${getPHColor(currentPH)}`}>
+                                <div className="px-2 py-1.5 flex flex-col items-center justify-center min-w-[36px]">
+                                    <span className="text-[9px] font-bold opacity-80 mb-0.5">pH</span>
+                                    <span className="font-mono text-sm font-black tracking-tighter leading-none">{currentPH.toFixed(2)}</span>
+                                </div>
+                            </div>
+                            {/* Tooltip on Hover */}
+                            <div className="mb-1 pointer-events-none opacity-0 group-hover/ph:opacity-100 transition-opacity bg-slate-900/80 backdrop-blur-md px-2 py-1.5 rounded-md border border-slate-700/50 flex flex-col">
+                                <span className="text-[9px] font-bold text-slate-300 uppercase tracking-widest leading-none mb-1">Tingkat Keasaman</span>
+                                <span className="text-[10px] text-slate-400 leading-tight">Berubah dipengaruhi oleh<br/>jenis bahan & konsentrasi</span>
                             </div>
                         </div>
-                        {/* Tooltip on Hover */}
-                        <div className="mb-1 pointer-events-none opacity-0 group-hover/ph:opacity-100 transition-opacity bg-slate-900/80 backdrop-blur-md px-2 py-1.5 rounded-md border border-slate-700/50 flex flex-col">
-                            <span className="text-[9px] font-bold text-slate-300 uppercase tracking-widest leading-none mb-1">Tingkat Keasaman</span>
-                            <span className="text-[10px] text-slate-400 leading-tight">Berubah dipengaruhi oleh<br/>jenis bahan & konsentrasi</span>
+
+                        {/* KE Bar part */}
+                        <div className="flex items-end gap-2 group/ke">
+                            <div className="h-[46px] w-4 bg-slate-800/80 rounded border border-slate-700 overflow-hidden relative flex flex-col justify-end shadow-lg transition-transform hover:scale-105">
+                                <div ref={keBarRef} className="w-full bg-blue-500 transition-all duration-100 ease-linear shadow-[0_0_8px_rgba(59,130,246,0.6)]" style={{ height: '0%' }}></div>
+                            </div>
+                            <div className="mb-1 pointer-events-none opacity-0 group-hover/ke:opacity-100 transition-opacity bg-slate-900/80 backdrop-blur-md px-2 py-1.5 rounded-md border border-slate-700/50 flex flex-col min-w-[100px]">
+                                <span className="text-[9px] font-bold text-slate-300 uppercase tracking-widest leading-none mb-1">Kinetic Energy vs Ea</span>
+                                <span ref={keTextRef} className="text-[10px] text-emerald-400 font-mono tracking-tighter shadow-sm">0.0 / 0.0</span>
+                            </div>
                         </div>
                     </div>
+                    )}
 
                     {/* Overlay Stats */}
-                    <div className="absolute top-5 left-5 font-mono text-[10px] text-emerald-400 space-y-1.5 pointer-events-none z-20 bg-slate-900/40 p-3 rounded-lg backdrop-blur-md border border-slate-700/50 opacity-0 group-hover:opacity-100 transition-opacity">
+                    {(isReacting || rateHistory.length > 0) && (
+                    <div className="absolute top-5 left-5 font-mono text-[10px] text-emerald-400 space-y-1.5 pointer-events-none z-20 bg-slate-900/40 p-3 rounded-lg backdrop-blur-md border border-slate-700/50 opacity-0 group-hover:opacity-100 transition-opacity animate-in fade-in duration-500">
                         <p className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>{`STATE: ${isReacting ? 'ACTIVE' : 'IDLE'}`}</p>
-                        <p className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>{`Ea   : ${katalis ? '30.0' : '50.0'} kJ/mol`}</p>
+                        <p className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>{`Ea   : ${((katalis ? (customEa !== null ? Math.max(1000, customEa - 20000) : activeBahanData.catEa) : (customEa !== null ? customEa : activeBahanData.Ea)) / 1000).toFixed(2)} kJ/mol`}</p>
                         <p className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-blue-400"></span>{`k    : ${k_val.toExponential(2)}`}</p>
                         <p className="flex items-center gap-2 text-amber-300 font-bold"><span className="w-1.5 h-1.5 rounded-full bg-amber-300"></span>{`RATE : ${lajuReaksi.toExponential(3)} M/s`}</p>
                         <p className="flex items-center gap-2 text-cyan-400 font-bold"><span className="w-1.5 h-1.5 rounded-full bg-cyan-400"></span>{`COLL : ${collisionsPerSecond} /s`}</p>
                         {katalis && <p className="text-emerald-400 font-bold mt-2 pt-2 border-t border-emerald-900/50">✓ CATALYST ENGAGED</p>}
                     </div>
+                    )}
                 </div>
             </section>
 
             {/* Bottom Center Left: Energy Graph */}
-            <section id="tour-chart-energy" className="lg:col-span-3 lg:row-span-2 bg-white border border-slate-200 p-5 rounded-2xl shadow-sm flex flex-col min-h-[150px] relative">
+            <section id="tour-chart-energy" className="lg:col-span-2 lg:row-span-2 bg-white/70 backdrop-blur-xl border border-slate-200/60 p-5 rounded-3xl shadow-lg shadow-slate-200/40 flex flex-col min-h-[150px] relative transition-all duration-300 hover:shadow-xl hover:shadow-indigo-100/40 hover:-translate-y-0.5">
                 <div className="flex justify-between items-start mb-3">
                     <h3 className="text-xs font-bold uppercase tracking-widest text-slate-500 flex items-center gap-2">
                         <Activity className="w-4 h-4" /> Grafik Energi
@@ -1258,19 +1585,29 @@ export default function App() {
             </section>
 
             {/* Bottom Center Right: Rate Time Chart */}
-            <section id="tour-chart-rate" className="lg:col-span-3 lg:row-span-2 bg-white border border-slate-200 p-5 rounded-2xl shadow-sm flex flex-col min-h-[150px] relative">
+            <section id="tour-chart-rate" className="lg:col-span-2 lg:row-span-2 bg-white/70 backdrop-blur-xl border border-slate-200/60 p-5 rounded-3xl shadow-lg shadow-slate-200/40 flex flex-col min-h-[150px] relative transition-all duration-300 hover:shadow-xl hover:shadow-indigo-100/40 hover:-translate-y-0.5">
                 <div className="flex justify-between items-start mb-2">
                     <h3 className="text-xs font-bold uppercase tracking-widest text-slate-500 flex items-center gap-2">
                         <TrendingUp className="w-4 h-4 text-amber-500" /> Laju Reaksi (v)
                     </h3>
-                    {isReacting && processedHistory.length > 1 && (
-                        <div className="flex flex-col items-end" title="Persentase Galat Simulasi Stokastik thd Teori">
-                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Persentase Galat</span>
-                            <span className={`text-sm font-mono font-bold ${galatPercentage > 20 ? 'text-red-500' : galatPercentage > 10 ? 'text-amber-500' : 'text-emerald-500'}`}>
-                                ±{galatPercentage.toFixed(1)}%
-                            </span>
-                        </div>
-                    )}
+                    <div className="flex items-center gap-3">
+                        {isReacting && processedHistory.length > 1 && (
+                            <div className="flex flex-col items-end" title="Persentase Galat Simulasi Stokastik thd Teori">
+                                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Persentase Galat</span>
+                                <span className={`text-sm font-mono font-bold ${galatPercentage > 20 ? 'text-red-500' : galatPercentage > 10 ? 'text-amber-500' : 'text-emerald-500'}`}>
+                                    ±{galatPercentage.toFixed(2)}%
+                                </span>
+                            </div>
+                        )}
+                        <button 
+                            onClick={() => setShowDataModal(true)} 
+                            className="bg-slate-100 hover:bg-indigo-50 text-slate-600 hover:text-indigo-600 border border-slate-200 hover:border-indigo-200 p-1.5 rounded-lg transition-colors flex items-center gap-1.5"
+                            title="Tampilkan Data Hasil Praktikum"
+                        >
+                            <Table className="w-4 h-4" />
+                            <span className="text-[10px] font-bold uppercase tracking-widest hidden sm:inline">Data</span>
+                        </button>
+                    </div>
                 </div>
                 <div className="flex-1 w-full h-full min-h-0">
                     <ResponsiveContainer width="100%" height="100%">
@@ -1334,9 +1671,69 @@ export default function App() {
                 </div>
             </section>
 
+            {/* Bottom Center Right 2: Rate vs Temp Chart */}
+            <section id="tour-chart-temp" className="lg:col-span-2 lg:row-span-2 bg-white/70 backdrop-blur-xl border border-slate-200/60 p-5 rounded-3xl shadow-lg shadow-slate-200/40 flex flex-col min-h-[150px] relative transition-all duration-300 hover:shadow-xl hover:shadow-indigo-100/40 hover:-translate-y-0.5">
+                <div className="flex justify-between items-start mb-2">
+                    <h3 className="text-xs font-bold uppercase tracking-widest text-slate-500 flex items-center gap-2">
+                        <Thermometer className="w-4 h-4 text-rose-500" /> Korelasi Suhu & Laju
+                    </h3>
+                </div>
+                <div className="flex gap-3 text-[9px] font-bold uppercase tracking-widest text-slate-400 z-10 px-1">
+                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-rose-500"></span> Teori</span>
+                    {(isReacting || rateHistory.length > 0) && (
+                        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-indigo-600"></span> Simulasi</span>
+                    )}
+                </div>
+                <div className="absolute inset-0 top-16 left-2 pb-2">
+                    <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={temperatureRateData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
+                            <XAxis 
+                                dataKey="suhu" 
+                                type="number"
+                                domain={['dataMin - 5', 'dataMax + 5']}
+                                tick={{ fontSize: 10, fill: '#64748B' }} 
+                                tickLine={false}
+                                axisLine={false}
+                            />
+                            <YAxis 
+                                tickFormatter={(val) => val.toExponential(1)}
+                                tick={{ fontSize: 10, fill: '#64748B' }}
+                                tickLine={false}
+                                axisLine={false}
+                            />
+                            <Tooltip 
+                                labelFormatter={(val) => `${val} K`}
+                                formatter={(val: number) => [val.toExponential(3) + ' M/s', 'Laju Teoretis']}
+                                contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)', fontSize: '12px', fontWeight: 'bold' }}
+                            />
+                            <Line 
+                                type="monotone" 
+                                dataKey="laju" 
+                                stroke="#f43f5e" 
+                                strokeWidth={2}
+                                dot={false}
+                                isAnimationActive={false}
+                            />
+                            <ReferenceDot x={suhu} y={lajuReaksi} r={4} fill="#f43f5e" stroke="#fff" strokeWidth={2} />
+                            {(isReacting || rateHistory.length > 0) && rateHistory.length > 0 && (
+                                <ReferenceDot 
+                                    x={suhu} 
+                                    y={rateHistory[rateHistory.length - 1].rate} 
+                                    r={5} 
+                                    fill="#4f46e5" 
+                                    stroke="#fff" 
+                                    strokeWidth={2} 
+                                />
+                            )}
+                        </LineChart>
+                    </ResponsiveContainer>
+                </div>
+            </section>
+
             {/* Right: ChemBot Assistant */}
-            <section id="tour-chembot" className="lg:col-span-3 lg:row-span-6 bg-white border border-slate-200 rounded-2xl shadow-sm flex flex-col min-h-[400px] overflow-hidden">
-                <div className="flex items-center gap-3 p-5 shrink-0 border-b border-slate-100 bg-gradient-to-r from-indigo-50/50 to-white">
+            <section id="tour-chembot" className="lg:col-span-3 lg:row-span-6 bg-white/70 backdrop-blur-xl border border-slate-200/60 rounded-3xl shadow-xl shadow-slate-200/40 flex flex-col min-h-[400px] overflow-hidden transition-all duration-300 hover:shadow-2xl hover:shadow-indigo-100/50">
+                <div className="flex items-center gap-3 p-5 shrink-0 border-b border-slate-100/50 bg-gradient-to-r from-indigo-50/30 to-white/30 backdrop-blur-sm">
                     <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center border border-indigo-200">
                         <MessageSquare className="w-4 h-4" />
                     </div>
@@ -1413,6 +1810,166 @@ export default function App() {
                 </div>
             </section>
         </main>
+
+        {showSummaryModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-300">
+                <div className="bg-slate-900 px-6 py-6 flex flex-col items-center justify-center text-center shrink-0 relative overflow-hidden">
+                    <button 
+                        onClick={() => setShowSummaryModal(false)}
+                        className="absolute top-4 right-4 z-20 text-slate-400 hover:text-white bg-slate-800/50 hover:bg-slate-800 p-2 rounded-full transition-colors"
+                        title="Tutup"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                    </button>
+                    <div className="absolute top-0 right-0 p-4 opacity-10">
+                        <CheckCircle2 className="w-32 h-32 text-indigo-100" />
+                    </div>
+                    <div className="w-16 h-16 bg-emerald-500/20 rounded-full flex items-center justify-center border border-emerald-500/50 mb-4 z-10 shadow-[0_0_15px_rgba(16,185,129,0.5)]">
+                        <CheckCircle2 className="w-8 h-8 text-emerald-400" />
+                    </div>
+                    <h2 className="text-2xl font-black text-white uppercase tracking-widest z-10">Simulasi Selesai</h2>
+                    <p className="text-sm text-slate-300 font-medium z-10 mt-1">Ringkasan Hasil Praktikum</p>
+                </div>
+                
+                <div className="p-6 bg-slate-50 flex flex-col gap-4 overflow-y-auto">
+                    <div className="bg-white p-4 rounded-xl border border-slate-200 flex justify-between items-center shadow-sm">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-pink-100 rounded-lg flex items-center justify-center">
+                                <Timer className="w-5 h-5 text-pink-600" />
+                            </div>
+                            <span className="text-sm font-bold text-slate-700 uppercase">Durasi Total</span>
+                        </div>
+                        <span className="text-xl font-black text-slate-900 font-mono">{timeStepRef.current}s</span>
+                    </div>
+
+                    <div className="bg-white p-4 rounded-xl border border-slate-200 flex justify-between items-center shadow-sm">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-cyan-100 rounded-lg flex items-center justify-center">
+                                <Activity className="w-5 h-5 text-cyan-600" />
+                            </div>
+                            <span className="text-sm font-bold text-slate-700 uppercase">Tumbukan Efektif</span>
+                        </div>
+                        <span className="text-xl font-black text-slate-900 font-mono">{totalCollisionsRef.current}</span>
+                    </div>
+
+                    <div className="bg-white p-4 rounded-xl border border-slate-200 flex justify-between items-center shadow-sm">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center">
+                                <TrendingUp className="w-5 h-5 text-amber-600" />
+                            </div>
+                            <span className="text-sm font-bold text-slate-700 uppercase">Efisiensi Reaksi</span>
+                        </div>
+                        <span className="text-xl font-black text-slate-900 font-mono pl-3">{Math.max(0, 100 - galatPercentage).toFixed(2)}%</span>
+                    </div>
+
+                    <div className="bg-emerald-50 border border-emerald-100 p-4 rounded-xl mt-1 text-left">
+                        <p className="text-xs text-emerald-800 font-medium leading-relaxed">
+                            <span className="font-bold flex items-center gap-1.5 mb-1"><CheckCircle2 className="w-4 h-4" /> Kesimpulan Eksperimen</span>
+                            Berdasarkan simulasi ini, Anda dapat melihat bahwa laju reaksi sangat bergantung pada frekuensi <strong>tumbukan efektif</strong>. Semakin sering partikel bertumbukan dengan energi yang melampaui hambatan aktivasi, semakin cepat produk terbentuk.
+                        </p>
+                    </div>
+
+                    <div className="flex flex-col gap-2 mt-2">
+                        <button 
+                            onClick={unduhLaporan}
+                            className="w-full py-3.5 bg-white border border-indigo-200 hover:border-indigo-600 hover:bg-indigo-50 text-indigo-700 rounded-xl font-bold uppercase tracking-wider transition-colors shadow-sm flex items-center justify-center gap-2 text-sm"
+                        >
+                            <ClipboardList className="w-4 h-4" />
+                            Unduh Laporan PDF
+                        </button>
+                        <button 
+                            onClick={() => setShowSummaryModal(false)}
+                            className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold uppercase tracking-wider transition-colors shadow-lg shadow-indigo-200 text-sm"
+                        >
+                            Tutup & Lanjutkan Analisis
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        )}
+
+        {showDataModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh]">
+                <div className="bg-slate-900 px-6 py-5 flex items-center justify-between shrink-0">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-indigo-500/20 rounded-xl flex items-center justify-center border border-indigo-500/30">
+                            <Table className="w-6 h-6 text-indigo-400" />
+                        </div>
+                        <div>
+                            <h2 className="text-xl font-black text-white uppercase tracking-wider">Hasil Praktikum</h2>
+                            <p className="text-sm text-slate-400 font-medium">Data Laju Reaksi: Teori vs Praktik</p>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                        <button 
+                            onClick={unduhLaporan}
+                            className="px-4 py-2 flex items-center gap-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 rounded-lg shadow-sm transition-colors"
+                        >
+                            <ClipboardList className="w-4 h-4" />
+                            Unduh PDF
+                        </button>
+                        <button 
+                            onClick={() => setShowDataModal(false)}
+                            className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
+                        >
+                            Tutup
+                        </button>
+                    </div>
+                </div>
+                
+                <div className="flex-1 overflow-auto p-6 bg-slate-50">
+                    <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left border-collapse">
+                                <thead>
+                                    <tr className="bg-slate-100/50 border-b border-slate-200 text-xs uppercase tracking-wider text-slate-500">
+                                        <th className="px-4 py-3 font-bold">Waktu (s)</th>
+                                        <th className="px-4 py-3 font-bold">Laju Teoretis (M/s)</th>
+                                        <th className="px-4 py-3 font-bold">Laju Simulasi (M/s)</th>
+                                        <th className="px-4 py-3 font-bold">Galat (%)</th>
+                                        <th className="px-4 py-3 font-bold">Keterangan</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="text-xs font-mono text-slate-600 divide-y divide-slate-100">
+                                    {processedHistory.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={5} className="px-4 py-8 text-center text-slate-400 font-sans">
+                                                Belum ada data praktikum. Silakan mulai reaksi.
+                                            </td>
+                                        </tr>
+                                    ) : (
+                                        processedHistory.map((row, i) => {
+                                            const error = row.rate > 0 ? (Math.abs(row.simulatedRate - row.rate) / row.rate * 100) : 0;
+                                            return (
+                                                <tr key={i} className="hover:bg-slate-50/50 transition-colors">
+                                                    <td className="px-4 py-3 font-bold text-slate-700">{row.time}</td>
+                                                    <td className="px-4 py-3 text-emerald-600">{row.rate.toExponential(3)}</td>
+                                                    <td className="px-4 py-3 text-indigo-600">{row.simulatedRate.toExponential(3)}</td>
+                                                    <td className={`px-4 py-3 font-bold ${error > 20 ? 'text-red-500' : error > 10 ? 'text-amber-500' : 'text-slate-500'}`}>
+                                                        {error.toFixed(2)}%
+                                                    </td>
+                                                    <td className="px-4 py-3 text-xs font-sans text-slate-500">
+                                                        {row.isSimRateAnomaly ? (
+                                                            <span className="text-red-500 flex items-center gap-1"><ShieldAlert className="w-3 h-3"/> Anomali Simulasi</span>
+                                                        ) : (
+                                                            <span className="text-emerald-500 flex items-center gap-1"><ShieldCheck className="w-3 h-3"/> Normal</span>
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        )}
 
         {showSOP && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
