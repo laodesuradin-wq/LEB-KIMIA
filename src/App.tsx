@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { Send, Play, RotateCcw, Thermometer, FlaskConical, Zap, Activity, MessageSquare, Menu, ClipboardList, ShieldAlert, ShieldCheck, Beaker, TrendingUp, Timer, ChevronDown, Table, CheckCircle2, Rotate3D, MousePointer2, Square } from 'lucide-react';
+import { Send, Play, RotateCcw, Thermometer, FlaskConical, Zap, Activity, MessageSquare, Menu, ClipboardList, ShieldAlert, ShieldCheck, Beaker, TrendingUp, Timer, ChevronDown, Table, CheckCircle2, Rotate3D, MousePointer2, Square, Compass } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { Particles3D } from './components/Particles3D';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ReferenceDot } from 'recharts';
@@ -217,6 +217,8 @@ const AnomalyDot = (props: any) => {
     return null;
 };
 
+import { RedoxSimulation } from './components/RedoxSimulation';
+
 export default function App() {
   const [suhu, setSuhu] = useState<number>(298);
   const [konsentrasi, setKonsentrasi] = useState<number>(0.5);
@@ -336,6 +338,7 @@ export default function App() {
   const [showSOP, setShowSOP] = useState(true);
   const [showDataModal, setShowDataModal] = useState(false);
   const [showSummaryModal, setShowSummaryModal] = useState(false);
+  const [activeMenu, setActiveMenu] = useState<'laju_reaksi' | 'redoks'>('laju_reaksi');
   
   const startTour = () => {
     localStorage.setItem('hasSeenTour', 'true');
@@ -667,8 +670,6 @@ export default function App() {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
     // Background color shifts based on temperature
     const currentSuhu = suhuRef.current;
     const heatRatio = Math.max(0, Math.min(1, (currentSuhu - 200) / 800));
@@ -677,7 +678,9 @@ export default function App() {
     const bgB = Math.floor(42 - heatRatio * 15);
     
     // Add a trailing effect for visual flair based on temperature
-    ctx.fillStyle = `rgba(${bgR}, ${bgG}, ${bgB}, ${Math.max(0.2, 1 - (currentSuhu / 1000))})`; 
+    // Semakin tinggi suhu, partikel makin cepat, jejak makin blur (alpha lebih rendah)
+    const trailAlpha = Math.max(0.1, 0.4 - (currentSuhu / 2000));
+    ctx.fillStyle = `rgba(${bgR}, ${bgG}, ${bgB}, ${trailAlpha})`; 
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     
     const jitter = Math.max(0, (currentSuhu - 400) / 200);
@@ -686,25 +689,35 @@ export default function App() {
         ctx.beginPath();
         const jx = p.x + (Math.random() - 0.5) * jitter;
         const jy = p.y + (Math.random() - 0.5) * jitter;
-        ctx.arc(jx, jy, p.radius, 0, Math.PI * 2);
         
+        let currentRadius = p.radius;
+        const speedSq = p.vx * p.vx + p.vy * p.vy;
+        const speed = Math.sqrt(speedSq);
+        const stretch = Math.max(1, 1 + speed * 0.15); // Semakin cepat, semakin lonjong
+        const angle = Math.atan2(p.vy, p.vx);
+
         if (p.flashTimer && p.flashTimer > 0) {
-           ctx.shadowBlur = 15;
-           ctx.shadowColor = '#fbbf24'; // Amber glow
-           // Interpolate color from white/amber back to original color based on timer
            const flashRatio = p.flashTimer / 20;
-           ctx.fillStyle = `rgba(255, 255, 255, ${flashRatio})`;
-           ctx.fill(); // Fill white core
+           // Tambah ukuran (swell) sesaat sebelum meledak
+           currentRadius = p.radius * (1 + flashRatio * 1.5);
+           ctx.shadowBlur = 20;
+           ctx.shadowColor = '#ffffff'; // White/Amber glow
+           
+           ctx.ellipse(jx, jy, currentRadius * stretch, currentRadius, angle, 0, Math.PI * 2);
+           ctx.fillStyle = `rgba(255, 255, 255, ${0.8 + flashRatio * 0.2})`;
+           ctx.fill();
 
            ctx.fillStyle = p.color;
            ctx.globalAlpha = 1 - flashRatio;
            p.flashTimer--;
         } else if (heatRatio > 0.6) {
+           ctx.ellipse(jx, jy, currentRadius * stretch, currentRadius, angle, 0, Math.PI * 2);
            ctx.shadowBlur = 10 * heatRatio;
            ctx.shadowColor = '#ef4444';
            ctx.fillStyle = p.color;
            ctx.globalAlpha = 1.0;
         } else {
+           ctx.ellipse(jx, jy, currentRadius * stretch, currentRadius, angle, 0, Math.PI * 2);
            ctx.shadowBlur = 0;
            ctx.fillStyle = p.color;
            ctx.globalAlpha = 1.0;
@@ -1020,7 +1033,7 @@ export default function App() {
         
         {/* Header Section */}
         <header className="shrink-0 flex justify-between items-center bg-white/70 backdrop-blur-xl border border-slate-200/60 p-4 px-6 rounded-3xl shadow-lg shadow-slate-200/40 relative z-10 transition-all duration-300">
-            <div className="flex items-center gap-3">
+            <div id="header-title" className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-inner">
                     <FlaskConical className="w-6 h-6 text-white" strokeWidth={2.5} />
                 </div>
@@ -1029,31 +1042,59 @@ export default function App() {
                     <p className="text-xs text-slate-500 font-medium">Virtual Reaction Simulator</p>
                 </div>
             </div>
-            <div className="hidden lg:flex gap-8 text-xs font-semibold text-slate-500">
-                <span className="flex items-center gap-1.5"><Activity className="w-4 h-4 text-emerald-500" /> System Nominal</span>
-                <span>Session: <span className="font-mono text-slate-700">#7721-X</span></span>
+            
+            <div className="flex items-center gap-4">
+                <div id="menu-tabs" className="hidden lg:flex p-1 bg-slate-100 rounded-xl gap-1">
+                    <button 
+                      onClick={() => setActiveMenu('laju_reaksi')}
+                      className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeMenu === 'laju_reaksi' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'}`}
+                    >
+                      Laju Reaksi
+                    </button>
+                    <button 
+                      onClick={() => setActiveMenu('redoks')}
+                      className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeMenu === 'redoks' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'}`}
+                    >
+                      Reaksi Redoks
+                    </button>
+                </div>
+                
+                <button
+                    onClick={startTour}
+                    className="hidden lg:flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-600 rounded-lg text-sm font-bold border border-indigo-200 hover:bg-indigo-100 transition-colors shadow-sm"
+                >
+                    <Compass className="w-4 h-4" /> Mulai Tur
+                </button>
+
+                <button 
+                    onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                    className="lg:hidden p-2 text-slate-500 hover:bg-slate-100 rounded-lg transition-colors active:scale-95"
+                >
+                    <Menu className="w-5 h-5" />
+                </button>
             </div>
-            <button 
-                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                className="lg:hidden p-2 text-slate-500 hover:bg-slate-100 rounded-lg transition-colors active:scale-95"
-            >
-                <Menu className="w-5 h-5" />
-            </button>
         </header>
 
         {isMobileMenuOpen && (
             <div className="lg:hidden bg-white border border-slate-200 p-4 rounded-xl shadow-sm flex flex-col gap-3 shrink-0 animate-in fade-in slide-in-from-top-2">
-                <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Status Sistem</span>
-                    <span className="flex items-center gap-1.5 text-xs font-bold text-emerald-600"><Activity className="w-4 h-4" /> NOMINAL</span>
-                </div>
-                <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Sesi Aktif</span>
-                    <span className="font-mono text-xs text-slate-700 font-bold bg-slate-100 px-2 py-1 rounded-md border border-slate-200">#7721-X</span>
-                </div>
+                <button 
+                  onClick={() => { setActiveMenu('laju_reaksi'); setIsMobileMenuOpen(false); }}
+                  className={`flex items-center justify-between p-3 rounded-xl text-sm font-bold transition-all border ${activeMenu === 'laju_reaksi' ? 'bg-indigo-50 border-indigo-200 text-indigo-600 shadow-sm' : 'border-slate-100 text-slate-600 hover:bg-slate-50'}`}
+                >
+                  <span>Laju Reaksi</span>
+                  {activeMenu === 'laju_reaksi' && <CheckCircle2 className="w-5 h-5 text-indigo-600" />}
+                </button>
+                <button 
+                  onClick={() => { setActiveMenu('redoks'); setIsMobileMenuOpen(false); }}
+                  className={`flex items-center justify-between p-3 rounded-xl text-sm font-bold transition-all border ${activeMenu === 'redoks' ? 'bg-indigo-50 border-indigo-200 text-indigo-600 shadow-sm' : 'border-slate-100 text-slate-600 hover:bg-slate-50'}`}
+                >
+                  <span>Reaksi Redoks</span>
+                  {activeMenu === 'redoks' && <CheckCircle2 className="w-5 h-5 text-indigo-600" />}
+                </button>
             </div>
         )}
 
+        {activeMenu === 'laju_reaksi' ? (
         <main className="flex-1 grid grid-cols-1 lg:grid-cols-12 lg:grid-rows-6 gap-4 lg:min-h-[700px] relative z-10">
             {/* Left: Control Panel */}
             <section id="tour-control-panel" className="lg:col-span-3 lg:row-span-6 bg-white/70 backdrop-blur-xl border border-slate-200/60 p-6 rounded-3xl shadow-xl shadow-slate-200/40 flex flex-col gap-6 overflow-y-auto transition-all duration-300 hover:shadow-indigo-100/40">
@@ -1810,6 +1851,9 @@ export default function App() {
                 </div>
             </section>
         </main>
+        ) : (
+            <RedoxSimulation />
+        )}
 
         {showSummaryModal && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">

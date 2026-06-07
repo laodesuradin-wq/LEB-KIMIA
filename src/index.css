@@ -20,4 +20,13 @@
     0% { transform: translateY(0) scale(1); opacity: 0.8; }
     100% { transform: translateY(-10px) scale(0); opacity: 0; }
   }
+
+  @keyframes electron-transfer {
+    0% { transform: translate(0, 0) scale(1); opacity: 0; }
+    20% { opacity: 1; transform: translate(0, 0) scale(1.2); }
+    80% { opacity: 1; }
+    100% { transform: translate(var(--tx), var(--ty)) scale(0.5); opacity: 0; }
+  }
+  
+  --animate-electron: electron-transfer 1.5s ease-out infinite;
 }
