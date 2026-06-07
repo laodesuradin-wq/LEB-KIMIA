@@ -288,6 +288,15 @@ export default function App() {
   const [bahanKimia, setBahanKimia] = useState<string>('H2O2');
   const [customEa, setCustomEa] = useState<number | null>(null);
   
+  const [apdChecklist, setApdChecklist] = useState({
+    jasLab: false,
+    kacamata: false,
+    sarungTangan: false,
+    masker: false,
+    sepatu: false,
+  });
+  const isApdComplete = Object.values(apdChecklist).every(Boolean);
+
   const [is3D, setIs3D] = useState<boolean>(false);
   const [autoRotate3D, setAutoRotate3D] = useState<boolean>(true);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -1428,10 +1437,40 @@ export default function App() {
                 </div>
 
                 <div className="mt-auto flex flex-col gap-3 pt-6 border-t border-slate-100">
+                    <div className="space-y-3 mb-2">
+                        <div className="flex items-center justify-between mb-2">
+                            <label className="flex items-center gap-1.5 text-xs font-bold uppercase text-slate-500">
+                                <ShieldCheck className="w-4 h-4 text-emerald-500" /> Checklist APD
+                            </label>
+                            <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${isApdComplete ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
+                                {isApdComplete ? 'LENGKAP' : 'BELUM LENGKAP'}
+                            </span>
+                        </div>
+                        <div className="grid grid-cols-5 gap-1.5">
+                            {[
+                                { id: 'jasLab', label: 'Jas Lab', icon: <Shirt className="w-4 h-4" /> },
+                                { id: 'kacamata', label: 'Kacamata', icon: <Glasses className="w-4 h-4" /> },
+                                { id: 'sarungTangan', label: 'S. Tangan', icon: <Hand className="w-4 h-4" /> },
+                                { id: 'masker', label: 'Masker', icon: <Wind className="w-4 h-4" /> },
+                                { id: 'sepatu', label: 'Sepatu', icon: <Footprints className="w-4 h-4" /> },
+                            ].map(apd => (
+                                <button 
+                                    key={apd.id}
+                                    onClick={() => setApdChecklist(prev => ({ ...prev, [apd.id]: !prev[apd.id as keyof typeof prev] }))}
+                                    className={`flex flex-col items-center justify-center py-2 px-1 rounded-xl border transition-all ${apdChecklist[apd.id as keyof typeof apdChecklist] ? 'bg-emerald-50 border-emerald-300 text-emerald-700 shadow-sm' : 'bg-white border-slate-200 text-slate-400 hover:bg-slate-50'}`}
+                                    title={apd.label}
+                                >
+                                    {apd.icon}
+                                    <span className="text-[8px] font-bold uppercase mt-1 leading-tight text-center">{apd.label}</span>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
                     <div className="flex gap-2">
                         <button 
+                            disabled={!isApdComplete}
                             onClick={jalankanReaksi}
-                            className={`bg-indigo-600 hover:bg-indigo-700 flex flex-1 items-center justify-center gap-2 text-white font-bold py-3.5 rounded-xl transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] uppercase tracking-wide text-sm`}
+                            className={`${isApdComplete ? 'bg-indigo-600 hover:bg-indigo-700 text-white hover:shadow-lg hover:-translate-y-0.5' : 'bg-slate-200 text-slate-400 cursor-not-allowed'} flex flex-1 items-center justify-center gap-2 font-bold py-3.5 rounded-xl transition-all shadow-md active:translate-y-0 active:scale-[0.98] uppercase tracking-wide text-sm`}
                         >
                             <Play className="w-5 h-5 fill-current" />
                             {isReacting ? 'Ulang' : 'Mulai Reaksi'}
@@ -1932,7 +1971,16 @@ export default function App() {
                     </div>
                     
                     <div className="bg-slate-50 border border-slate-200 rounded-xl p-5">
-                        <h4 className="text-xs font-bold text-slate-800 uppercase tracking-widest mb-4">Bahan Kimia</h4>
+                        <div className="flex items-center justify-between mb-4">
+                            <h4 className="text-xs font-bold text-slate-800 uppercase tracking-widest">Bahan Kimia</h4>
+                            <button 
+                                onClick={() => setShowSOP(true)}
+                                className="flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-red-600 bg-red-100/50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors"
+                            >
+                                <ShieldAlert className="w-3 h-3" />
+                                Safety Brief
+                            </button>
+                        </div>
                         <ul className="text-[12px] text-slate-600 space-y-2.5 font-medium">
                             {activeBahanData.bahan.map((bahanItem, idx) => (
                                 <ExpandableBahan key={idx} bahanItem={bahanItem} />
@@ -2120,6 +2168,40 @@ export default function App() {
                 </div>
                 
                 <div className="p-6 overflow-y-auto space-y-8 flex-1">
+                    <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-5 animate-in fade-in slide-in-from-bottom-4">
+                        <h3 className="text-xs font-bold text-indigo-800 uppercase tracking-widest mb-4 flex items-center gap-2">
+                            <FlaskConical className="w-4 h-4 text-indigo-600" /> Safety Brief Khusus: {activeBahanData.nama}
+                        </h3>
+                        <div className="flex flex-col gap-3 mt-2">
+                            {activeBahanData.bahan.map((bahan, idx) => (
+                                <div key={idx} className={`p-4 rounded-xl border ${bahan.isHazardous ? 'bg-red-50 border-red-200' : 'bg-emerald-50 border-emerald-200'} shadow-sm`}>
+                                    <div className="flex items-start gap-4">
+                                        <div className="mt-1 flex flex-wrap gap-1.5 w-12 justify-center shrink-0">
+                                            {bahan.symbols ? (
+                                                bahan.symbols.map((sym: string, i: number) => <React.Fragment key={i}>{getSafetyIcon(sym)}</React.Fragment>)
+                                            ) : (
+                                                bahan.isHazardous ? <ShieldAlert className="w-5 h-5 text-red-600" /> : <ShieldCheck className="w-5 h-5 text-emerald-600" />
+                                            )}
+                                        </div>
+                                        <div className="flex-1">
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <h4 className={`text-sm font-bold ${bahan.isHazardous ? 'text-red-900' : 'text-emerald-900'}`}>{bahan.nama}</h4>
+                                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${bahan.isHazardous ? 'bg-red-200 text-red-800' : 'bg-emerald-200 text-emerald-800'}`}>
+                                                    {bahan.isHazardous ? 'Berbahaya' : 'Aman'}
+                                                </span>
+                                            </div>
+                                            <p className={`text-xs font-medium ${bahan.isHazardous ? 'text-red-800/80' : 'text-emerald-800/80'} mb-3`}>{bahan.desc}</p>
+                                            <div className={`p-3 rounded-lg border text-xs font-medium leading-relaxed shadow-sm ${bahan.isHazardous ? 'bg-white border-red-100 text-red-800' : 'bg-white border-emerald-100 text-emerald-800'}`}>
+                                                <strong className="block mb-1 opacity-70">INFORMASI KESELAMATAN:</strong>
+                                                {bahan.bahayaDesc}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
                     <div className="bg-red-50 border border-red-200 rounded-xl p-5">
                         <h3 className="text-xs font-bold text-red-800 uppercase tracking-widest mb-4 flex items-center gap-2">
                             <ShieldAlert className="w-4 h-4 text-red-600" /> Panduan Keselamatan Kerja di Laboratorium
