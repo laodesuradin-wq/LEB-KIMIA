@@ -1,21 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import { FlaskConical, Zap, Play, RotateCcw, Activity, ChevronDown, ShieldAlert, ShieldCheck, Beaker } from 'lucide-react';
+import { FlaskConical, Zap, Play, RotateCcw, Activity, ChevronDown, ShieldAlert, ShieldCheck, Beaker, Shirt, Glasses, Hand, Wind, Footprints, Flame, Skull, Droplets, Bomb, AlertTriangle, Leaf, CheckCircle2 } from 'lucide-react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, ReferenceLine } from 'recharts';
 
 const METALS = [
-  { id: 'Zn', name: 'Seng (Zn)', E0: -0.76, color: 'bg-slate-300', Ar: 65.4 },
-  { id: 'Fe', name: 'Besi (Fe)', E0: -0.44, color: 'bg-stone-500', Ar: 55.8 },
-  { id: 'Pb', name: 'Timbal (Pb)', E0: -0.13, color: 'bg-gray-400', Ar: 207.2 },
-  { id: 'Cu', name: 'Tembaga (Cu)', E0: 0.34, color: 'bg-orange-400', Ar: 63.5 },
-  { id: 'Ag', name: 'Perak (Ag)', E0: 0.80, color: 'bg-slate-200', Ar: 107.9 },
+  { id: 'Zn', name: 'Seng (Zn)', E0: -0.76, color: 'bg-slate-300', Ar: 65.4, n: 2 },
+  { id: 'Fe', name: 'Besi (Fe)', E0: -0.44, color: 'bg-stone-500', Ar: 55.8, n: 2 },
+  { id: 'Pb', name: 'Timbal (Pb)', E0: -0.13, color: 'bg-gray-400', Ar: 207.2, n: 2 },
+  { id: 'Cu', name: 'Tembaga (Cu)', E0: 0.34, color: 'bg-orange-400', Ar: 63.5, n: 2 },
+  { id: 'Ag', name: 'Perak (Ag)', E0: 0.80, color: 'bg-slate-200', Ar: 107.9, n: 1 },
 ];
 
 const SOLUTIONS = [
-  { id: 'ZnSO4', name: 'Seng Sulfat (Zn²⁺)', ion: 'Zn²⁺', E0: -0.76, color: '#f8fafc', cName: 'Seng' },
-  { id: 'FeSO4', name: 'Besi(II) Sulfat (Fe²⁺)', ion: 'Fe²⁺', E0: -0.44, color: '#bbf7d0', cName: 'Besi' },
-  { id: 'PbNO32', name: 'Timbal(II) Nitrat (Pb²⁺)', ion: 'Pb²⁺', E0: -0.13, color: '#f1f5f9', cName: 'Timbal' },
-  { id: 'CuSO4', name: 'Tembaga(II) Sulfat (Cu²⁺)', ion: 'Cu²⁺', E0: 0.34, color: '#93c5fd', cName: 'Tembaga' },
-  { id: 'AgNO3', name: 'Perak Nitrat (Ag⁺)', ion: 'Ag⁺', E0: 0.80, color: '#ffffff', cName: 'Perak' },
+  { id: 'ZnSO4', name: 'Seng Sulfat (Zn²⁺)', ion: 'Zn²⁺', E0: -0.76, color: '#f8fafc', cName: 'Seng', n: 2, Ar: 65.4 },
+  { id: 'FeSO4', name: 'Besi(II) Sulfat (Fe²⁺)', ion: 'Fe²⁺', E0: -0.44, color: '#bbf7d0', cName: 'Besi', n: 2, Ar: 55.8 },
+  { id: 'PbNO32', name: 'Timbal(II) Nitrat (Pb²⁺)', ion: 'Pb²⁺', E0: -0.13, color: '#f1f5f9', cName: 'Timbal', n: 2, Ar: 207.2 },
+  { id: 'CuSO4', name: 'Tembaga(II) Sulfat (Cu²⁺)', ion: 'Cu²⁺', E0: 0.34, color: '#93c5fd', cName: 'Tembaga', n: 2, Ar: 63.5 },
+  { id: 'AgNO3', name: 'Perak Nitrat (Ag⁺)', ion: 'Ag⁺', E0: 0.80, color: '#ffffff', cName: 'Perak', n: 1, Ar: 107.9 },
 ];
 
 const REDOX_ALAT = [
@@ -40,26 +40,29 @@ const getRedoxBahan = (mass: number, volume: number, molarity: number) => [
         kuantitas: `${mass} gram / lempeng`,
         desc: 'Padatan logam murni yang bertindak sebagai agen pereduksi potensial.',
         isHazardous: false,
-        bahayaDesc: 'Aman disentuh, namun perak (Ag) mahal dan berat. Cuci bersih setelah digunakan.'
+        bahayaDesc: 'Aman disentuh, namun perak (Ag) mahal dan berat. Cuci bersih setelah digunakan.',
+        symbols: ['safe']
     },
     { 
         nama: `Larutan Garam ${molarity} M`, 
         kuantitas: `${volume} mL / percobaan`,
         desc: 'Sediaan larutan ion transisi (ZnSO₄, FeSO₄, Pb(NO₃)₂, CuSO₄, AgNO₃) sebagai agen pengoksidasi.',
         isHazardous: true,
-        bahayaDesc: 'Beracun bagi lingkungan perairan. Ion timbal (Pb²⁺) beracun bila tertelan. Hindari kontak langsung dengan kulit.'
+        bahayaDesc: 'Beracun bagi lingkungan perairan. Ion timbal (Pb²⁺) beracun bila tertelan. Hindari kontak langsung dengan kulit.',
+        symbols: ['toxic', 'environment']
     },
     { 
         nama: 'Aquades (H₂O)', 
         kuantitas: '100 - 250 mL',
         desc: 'Air murni pencuci.',
         isHazardous: false,
-        bahayaDesc: 'Aman. Digunakan untuk membilas logam sebelum dan sesudah reaksi.'
+        bahayaDesc: 'Aman. Digunakan untuk membilas logam sebelum dan sesudah reaksi.',
+        symbols: ['safe']
     }
 ];
 
 const REDOX_KESELAMATAN = [
-    "Gunakan jas laboratorium, sarung tangan pelindung, dan kacamata keselamatan (goggles) selama praktikum.",
+    "Gunakan APD Lengkap: Jas Laboratorium, Kacamata Pelindung (Goggles), Sarung Tangan Kimia, Masker Respirator, dan Sepatu Tertutup selama praktikum berpangsung.",
     "Hindari kontak langsung antara kulit dengan zat kimia, terutama larutan garam logam berat (AgNO₃, Pb(NO₃)₂, CuSO₄) yang dapat bersifat racun atau iritan.",
     "Lakukan percobaan yang melibatkan gas beracun atau korosif (jika ada) di dalam lemari asam.",
     "Cuci tangan dengan sabun dan air mengalir setelah selesai melakukan praktikum.",
@@ -87,6 +90,40 @@ const ExpandableAlat = ({ alatItem }: { alatItem: any }) => {
     );
 };
 
+const getSafetyIcon = (type: string) => {
+    switch(type) {
+        case 'flammable':
+            return <div className="w-5 h-5 bg-white border border-red-600 rotate-45 flex items-center justify-center rounded-[2px] shadow-sm shrink-0" title="Mudah Terbakar"><Flame className="w-3 h-3 text-black -rotate-45" strokeWidth={2} /></div>;
+        case 'corrosive':
+            return <div className="w-5 h-5 bg-white border border-red-600 rotate-45 flex items-center justify-center rounded-[2px] shadow-sm shrink-0" title="Korosif"><Droplets className="w-3 h-3 text-black -rotate-45" strokeWidth={2} /></div>;
+        case 'toxic':
+            return <div className="w-5 h-5 bg-white border border-red-600 rotate-45 flex items-center justify-center rounded-[2px] shadow-sm shrink-0" title="Beracun"><Skull className="w-3 h-3 text-black -rotate-45" strokeWidth={2} /></div>;
+        case 'explosive':
+            return <div className="w-5 h-5 bg-white border border-red-600 rotate-45 flex items-center justify-center rounded-[2px] shadow-sm shrink-0" title="Mudah Meledak"><Bomb className="w-3 h-3 text-black -rotate-45" strokeWidth={2} /></div>;
+        case 'irritant':
+            return <div className="w-5 h-5 bg-white border border-red-600 rotate-45 flex items-center justify-center rounded-[2px] shadow-sm shrink-0" title="Iritasi/Berbahaya"><AlertTriangle className="w-3 h-3 text-black -rotate-45" strokeWidth={2} /></div>;
+        case 'environment':
+            return <div className="w-5 h-5 bg-white border border-red-600 rotate-45 flex items-center justify-center rounded-[2px] shadow-sm shrink-0" title="Bahaya Lingkungan"><Leaf className="w-3 h-3 text-black -rotate-45" strokeWidth={2} /></div>;
+        case 'safe':
+            return <div className="w-5 h-5 bg-white border border-emerald-500 rounded-full flex items-center justify-center shadow-sm shrink-0" title="Aman"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" strokeWidth={2} /></div>;
+        default:
+            return null;
+    }
+};
+
+const getSafetyLabel = (type: string) => {
+    switch(type) {
+        case 'flammable': return 'Mudah Terbakar';
+        case 'corrosive': return 'Korosif';
+        case 'toxic': return 'Beracun';
+        case 'explosive': return 'Mudah Meledak';
+        case 'irritant': return 'Iritasi / Berbahaya';
+        case 'environment': return 'Bahaya Lingkungan';
+        case 'safe': return 'Aman';
+        default: return '';
+    }
+};
+
 const ExpandableBahan = ({ bahanItem }: { bahanItem: any }) => {
     const [isOpen, setIsOpen] = useState(false);
     return (
@@ -95,7 +132,14 @@ const ExpandableBahan = ({ bahanItem }: { bahanItem: any }) => {
             <div className="flex-1 select-none">
                 <div className="flex items-center justify-between">
                     <strong className="text-slate-800 group-hover:text-emerald-600 transition-colors">{bahanItem.nama}</strong>
-                    <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                    <div className="flex items-center gap-2">
+                        {bahanItem.symbols && (
+                            <div className="flex items-center gap-1.5 mr-1">
+                                {bahanItem.symbols.map((sym: string, i: number) => <React.Fragment key={i}>{getSafetyIcon(sym)}</React.Fragment>)}
+                            </div>
+                        )}
+                        <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                    </div>
                 </div>
                 {isOpen && (
                     <div className="mt-1 flex flex-col gap-1.5 animate-in fade-in slide-in-from-top-1">
@@ -105,12 +149,24 @@ const ExpandableBahan = ({ bahanItem }: { bahanItem: any }) => {
                             </span>
                         )}
                         <span className="text-slate-500 text-[11px]">{bahanItem.desc}</span>
-                        <div className={`p-2 mt-1 rounded border text-[11px] font-medium leading-relaxed ${bahanItem.isHazardous ? 'bg-red-50 border-red-200 text-red-800' : 'bg-emerald-50 border-emerald-200 text-emerald-800'}`}>
-                            <div className="flex items-center gap-1.5 mb-1.5">
+                        <div className={`p-2 mt-2 rounded border text-[11px] font-medium leading-relaxed ${bahanItem.isHazardous ? 'bg-red-50 border-red-200 text-red-800' : 'bg-emerald-50 border-emerald-200 text-emerald-800'}`}>
+                            <div className="flex items-center gap-2 mb-2 pb-1 border-b border-opacity-50 border-slate-300">
                                 {bahanItem.isHazardous ? <ShieldAlert className="w-3.5 h-3.5 text-red-600" /> : <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />}
-                                <strong className={bahanItem.isHazardous ? "text-red-700" : "text-emerald-700"}>{bahanItem.isHazardous ? 'BAHAYA' : 'AMAN'}</strong>
+                                <strong className={bahanItem.isHazardous ? "text-red-700" : "text-emerald-700"}>{bahanItem.isHazardous ? 'INFORMASI BAHAYA' : 'AMAN'}</strong>
                             </div>
-                            {bahanItem.bahayaDesc}
+                            {bahanItem.symbols && (
+                                <div className="flex flex-wrap gap-2 mb-2">
+                                    {bahanItem.symbols.map((sym: string, i: number) => (
+                                        <div key={i} className="flex items-center gap-1.5 bg-white/60 px-2 py-1 rounded border border-white/40">
+                                            {getSafetyIcon(sym)}
+                                            <span className="text-[9px] font-bold uppercase tracking-wider">{getSafetyLabel(sym)}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                            <div className="flex flex-col gap-2">
+                                {bahanItem.bahayaDesc}
+                            </div>
                         </div>
                     </div>
                 )}
@@ -128,6 +184,7 @@ export function RedoxSimulation() {
   const [durasi, setDurasi] = useState(10);
   const [isReacting, setIsReacting] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
 
   const selectedMetal = METALS.find(m => m.id === metalId)!;
   const selectedSolution = SOLUTIONS.find(s => s.id === solutionId)!;
@@ -138,15 +195,39 @@ export function RedoxSimulation() {
   const willReact = selectedSolution.E0 > selectedMetal.E0;
   const standardCellPotential = selectedSolution.E0 - selectedMetal.E0;
   // Hukum Nernst E = E0 - (0.0592/n)*log(Q)
-  // Untuk reaksi reduksi, kita integrasikan perkiraan nilai sesungguhnya
-  const n = 2; // asumsi sebagian besar kation bervalensi 2 di simulasi ini
-  const realCellPotential = standardCellPotential - (0.0592 / n) * Math.log10(1 / solutionMolarity);
+  // Menentukan jumlah mol elektron yang terlibat (KPK dari valensi)
+  const nTransfer = Math.max(selectedMetal.n, selectedSolution.n);
+  const realCellPotential = standardCellPotential - (0.0592 / nTransfer) * Math.log10(1 / Math.pow(solutionMolarity, nTransfer / selectedSolution.n));
 
-  // Molaritas otomatis disesuaikan dengan M = (m/Ar) * (1000/V)
+  // Menghitung stoikiometri Faraday
+  const molLogam = metalMass / selectedMetal.Ar;
+  const molIon = (solutionVolume / 1000) * solutionMolarity;
+  
+  // Reaksi: (nTransfer/selectedMetal.n) Logam + (nTransfer/selectedSolution.n) Ion -> ...
+  // Laju pembentukan endapan berdasarkan reaktan pembatas:
+  const koefLogam = nTransfer / selectedMetal.n;
+  const koefIon = nTransfer / selectedSolution.n;
+  const maxMolReaksi = Math.min(molLogam / koefLogam, molIon / koefIon);
+  const massaEndapan = (maxMolReaksi * koefIon) * selectedSolution.Ar;
+
+  // helper format ion
+  const formatIon = (n: number) => n === 1 ? '⁺' : n === 2 ? '²⁺' : n === 3 ? '³⁺' : `${n}⁺`;
+  const formatKoef = (k: number) => k > 1 ? k.toString() : '';
+
+  const oxLabel = `${formatKoef(koefLogam)}${selectedMetal.id} \u2192 ${formatKoef(koefLogam)}${selectedMetal.id}${formatIon(selectedMetal.n)} + ${koefLogam * selectedMetal.n}e\u207B`;
+  const redTarget = selectedSolution.cName === 'Perak' ? 'Ag' : selectedSolution.ion.replace(/[^A-Za-z]/g, '');
+  const redLabel = `${formatKoef(koefIon)}${selectedSolution.ion} + ${koefIon * selectedSolution.n}e\u207B \u2192 ${formatKoef(koefIon)}${redTarget}`;
+  const totalLabel = `${formatKoef(koefLogam)}${selectedMetal.id} + ${formatKoef(koefIon)}${selectedSolution.ion} \u2192 ${formatKoef(koefLogam)}${selectedMetal.id}${formatIon(selectedMetal.n)} + ${formatKoef(koefIon)}${redTarget}`;
+
+  // Molaritas otomatis disesuaikan berdasarkan stoikiometri reaksi sempurna
   useEffect(() => {
-    const calculated = (metalMass / selectedMetal.Ar) * (1000 / solutionVolume);
+    const koefLogamT = Math.max(selectedMetal.n, selectedSolution.n) / selectedMetal.n;
+    const koefIonT = Math.max(selectedMetal.n, selectedSolution.n) / selectedSolution.n;
+    const molLogamT = metalMass / selectedMetal.Ar;
+    const molIonButuh = molLogamT * (koefIonT / koefLogamT);
+    const calculated = molIonButuh * (1000 / solutionVolume);
     setSolutionMolarity(calculated);
-  }, [metalMass, solutionVolume, selectedMetal.Ar]);
+  }, [metalMass, solutionVolume, selectedMetal.Ar, selectedMetal.n, selectedSolution.n]);
 
   useEffect(() => {
     let timer: any;
@@ -173,8 +254,17 @@ export function RedoxSimulation() {
   };
 
   const handleReset = () => {
+    if (progress > 0) {
+      setShowResetConfirm(true);
+    } else {
+      performReset();
+    }
+  };
+  
+  const performReset = () => {
     setIsReacting(false);
     setProgress(0);
+    setShowResetConfirm(false);
   };
 
   // Potensial Standar Data untuk Chart
@@ -185,6 +275,36 @@ export function RedoxSimulation() {
 
   return (
     <div className="w-full flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6 relative z-10 animate-in fade-in duration-500">
+        
+        {/* Modal Konfirmasi Reset */}
+        {showResetConfirm && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
+                <div className="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl animate-in fade-in zoom-in-95 duration-200 border border-slate-200">
+                    <div className="flex items-center gap-3 text-red-500 mb-4">
+                        <ShieldAlert className="w-6 h-6" />
+                        <h3 className="font-bold text-lg text-slate-800">Konfirmasi Reset</h3>
+                    </div>
+                    <p className="text-slate-600 text-sm mb-6 leading-relaxed">
+                        Apakah Anda yakin ingin menghentikan dan mereset simulasi ini? Data eksperimen yang sedang berjalan mungkin akan hilang.
+                    </p>
+                    <div className="flex gap-3">
+                        <button 
+                            onClick={() => setShowResetConfirm(false)}
+                            className="flex-1 py-2.5 px-4 rounded-xl font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors border border-slate-200"
+                        >
+                            Batal
+                        </button>
+                        <button 
+                            onClick={performReset}
+                            className="flex-1 py-2.5 px-4 rounded-xl font-bold text-white bg-red-500 hover:bg-red-600 shadow-lg shadow-red-500/30 transition-colors"
+                        >
+                            Ya, Reset
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
+
         {/* Panel Kiri: Kontrol */}
         <div className="lg:col-span-4 flex flex-col gap-6">
             <div className="bg-white/70 backdrop-blur-xl border border-slate-200/60 p-6 rounded-3xl shadow-xl shadow-slate-200/40">
@@ -199,7 +319,7 @@ export function RedoxSimulation() {
                             value={metalId} 
                             onChange={(e) => { setMetalId(e.target.value); handleReset(); }}
                             className="w-full p-2.5 border border-slate-300 rounded-xl text-slate-700 bg-white font-medium text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-                            disabled={isReacting}
+                            disabled={isReacting || progress > 0}
                         >
                             {METALS.map(m => (
                                 <option key={m.id} value={m.id}>{m.name}</option>
@@ -213,7 +333,7 @@ export function RedoxSimulation() {
                             value={solutionId} 
                             onChange={(e) => { setSolutionId(e.target.value); handleReset(); }}
                             className="w-full p-2.5 border border-slate-300 rounded-xl text-slate-700 bg-white font-medium text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-                            disabled={isReacting}
+                            disabled={isReacting || progress > 0}
                         >
                             {SOLUTIONS.map(s => (
                                 <option key={s.id} value={s.id}>{s.name}</option>
@@ -230,7 +350,7 @@ export function RedoxSimulation() {
                                 value={metalMass}
                                 onChange={(e) => { setMetalMass(Number(e.target.value)); handleReset(); }}
                                 className="w-full p-2 border border-slate-300 rounded-lg text-slate-700 bg-white font-medium text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-                                disabled={isReacting}
+                                disabled={isReacting || progress > 0}
                             />
                         </div>
                         <div>
@@ -241,7 +361,7 @@ export function RedoxSimulation() {
                                 value={solutionVolume}
                                 onChange={(e) => { setSolutionVolume(Number(e.target.value)); handleReset(); }}
                                 className="w-full p-2 border border-slate-300 rounded-lg text-slate-700 bg-white font-medium text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-                                disabled={isReacting}
+                                disabled={isReacting || progress > 0}
                             />
                         </div>
                     </div>
@@ -270,7 +390,7 @@ export function RedoxSimulation() {
                                 value={durasi}
                                 onChange={(e) => { setDurasi(Number(e.target.value)); handleReset(); }}
                                 className="flex-1"
-                                disabled={isReacting}
+                                disabled={isReacting || progress > 0}
                             />
                             <span className="text-sm font-bold text-indigo-600 w-12">{durasi} s</span>
                         </div>
@@ -280,7 +400,7 @@ export function RedoxSimulation() {
                 <div className="mt-8 flex gap-3">
                     {!isReacting || progress === 100 ? (
                         <button 
-                            onClick={progress === 100 ? handleReset : handleStart}
+                            onClick={progress === 100 ? () => setShowResetConfirm(true) : handleStart}
                             className={`flex-1 py-3 px-4 rounded-xl font-bold flex items-center justify-center gap-2 text-white transition-all ${progress === 100 ? 'bg-slate-700 hover:bg-slate-800 shadow-md' : 'bg-indigo-600 hover:bg-indigo-700 shadow-lg hover:shadow-indigo-500/30'}`}
                         >
                             {progress === 100 ? <><RotateCcw className="w-5 h-5"/> Reset</> : <><Play className="w-5 h-5"/> Reaksikan</>}
@@ -420,31 +540,19 @@ export function RedoxSimulation() {
                                     className="absolute bottom-0 w-full transition-all duration-300"
                                     style={{ 
                                         height: `${progress * 0.7}%`,
-                                        backgroundColor: ['Cu'].includes(selectedSolution.cName) ? '#b45309' : '#94a3b8',
-                                        filter: 'contrast(120%) brightness(80%)',
                                         opacity: progress / 100,
                                     }}
                                 >
-                                    <div className="w-full h-full opacity-80" style={{
-                                        backgroundImage: 'radial-gradient(black 1px, transparent 1px)',
-                                        backgroundSize: '3px 3px'
+                                    <div className="w-full h-full bg-orange-600 opacity-90 shadow-[inset_0px_-5px_10px_rgba(0,0,0,0.5)]" style={{
+                                        backgroundImage: 'radial-gradient(#ea580c 2px, transparent 2px), radial-gradient(#9a3412 1.5px, transparent 1.5px)',
+                                        backgroundSize: '8px 8px, 6px 6px',
+                                        backgroundPosition: '0 0, 3px 3px'
                                     }}></div>
                                 </div>
                             )}
                         </div>
 
-                        {/* Penanda Endapan pada Katoda */}
-                        {willReact && isReacting && progress > 10 && (
-                            <div className="absolute right-[-60px] top-[75%] translate-y-[-50%] flex items-center gap-2 z-40 transition-opacity duration-500 opacity-100">
-                                <div className="w-12 h-0.5 bg-yellow-400"></div>
-                                <div className="bg-slate-800 border border-slate-600 text-white text-[10px] px-2 py-1 rounded shadow-lg whitespace-nowrap">
-                                    <span className="text-yellow-400 font-bold">Endapan</span><br/>
-                                    {selectedSolution.cName} ({selectedSolution.ion.replace(/[^A-Za-z]/g, '')})
-                                </div>
-                            </div>
-                        )}
-                        
-                        {/* Transfer Elektron */}
+                            {/* Transfer Elektron */}
                         {isReacting && progress < 100 && willReact && (
                             <div className="absolute inset-0 z-30 pointer-events-none">
                                 {Array.from({length: 12}).map((_, i) => {
@@ -469,7 +577,18 @@ export function RedoxSimulation() {
                                 })}
                             </div>
                         )}
+                        {/* Penanda Endapan pada Katoda (dalam beaker) */}
+                        {willReact && isReacting && progress > 10 && (
+                            <div className="absolute right-14 top-[70%] translate-y-[-50%] flex items-center gap-1 z-40 transition-opacity duration-500 opacity-100">
+                                <div className="bg-slate-800/90 backdrop-blur-sm border border-slate-600 text-white text-[9px] px-2 py-1 rounded shadow-lg whitespace-nowrap border-l-2 border-l-orange-500">
+                                    <span className="text-orange-400 font-bold">Endapan</span><br/>
+                                    {selectedSolution.cName} ({selectedSolution.ion.replace(/[^A-Za-z]/g, '')})
+                                </div>
+                                <div className="w-5 h-0.5 bg-orange-500"></div>
+                            </div>
+                        )}
                     </div>
+                    
                 </div>
 
                 <div className="mt-8 text-center z-20">
@@ -501,6 +620,11 @@ export function RedoxSimulation() {
                 
                 {!isReacting ? (
                      <p className="text-sm text-slate-500 italic mt-4 text-center">Tekan tombol "Reaksikan" untuk mensimulasikan percobaan redoks.</p>
+                ) : progress < 100 ? (
+                     <div className="flex flex-col items-center justify-center p-6 space-y-4">
+                         <div className="w-8 h-8 rounded-full border-4 border-indigo-200 border-t-indigo-600 animate-spin"></div>
+                         <p className="text-sm font-medium text-indigo-600 animate-pulse text-center">Reaksi sedang berlangsung. Menunggu pembentukan endapan selesai...</p>
+                     </div>
                 ) : (
                     willReact ? (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in slide-in-from-bottom-2">
@@ -512,15 +636,37 @@ export function RedoxSimulation() {
                             <div className="bg-slate-50 border border-slate-200 p-4 rounded-2xl font-mono text-sm flex flex-col justify-center gap-2">
                                 <div className="flex justify-between items-center text-slate-600">
                                     <span>Oksidasi:</span>
-                                    <span className="font-bold text-rose-600">{selectedMetal.id} → {selectedMetal.id}²⁺ + 2e⁻</span>
+                                    <span className="font-bold text-rose-600">{oxLabel}</span>
                                 </div>
                                 <div className="flex justify-between items-center text-slate-600 border-b border-slate-200 pb-2">
                                     <span>Reduksi:</span>
-                                    <span className="font-bold text-blue-600">{selectedSolution.ion} + 2e⁻ → {selectedSolution.cName === 'Perak' ? 'Ag' : selectedSolution.ion.replace('²⁺','')}</span>
+                                    <span className="font-bold text-blue-600">{redLabel}</span>
                                 </div>
                                 <div className="flex justify-between items-center font-bold text-indigo-700 pt-1">
                                     <span>Total:</span>
-                                    <span>{selectedMetal.id} + {selectedSolution.ion} → {selectedMetal.id}²⁺ + {selectedSolution.cName === 'Perak' ? 'Ag' : selectedSolution.ion.replace('²⁺','')}</span>
+                                    <span>{totalLabel}</span>
+                                </div>
+                            </div>
+                            
+                            <div className="md:col-span-2 bg-indigo-50 border border-indigo-200 p-4 rounded-2xl flex flex-col justify-center">
+                                <span className="text-xs font-bold text-indigo-600 uppercase mb-2">Hukum Faraday & Analisis Massa</span>
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm font-mono items-center">
+                                    <div>
+                                        <div className="text-slate-500 text-[10px] uppercase">Mol {selectedMetal.id} awal</div>
+                                        <div className="font-bold text-slate-700">{molLogam.toFixed(4)} mol</div>
+                                    </div>
+                                    <div>
+                                        <div className="text-slate-500 text-[10px] uppercase">Mol {selectedSolution.ion} awal</div>
+                                        <div className="font-bold text-slate-700">{molIon.toFixed(4)} mol</div>
+                                    </div>
+                                    <div>
+                                        <div className="text-slate-500 text-[10px] uppercase">Elektron ({nTransfer}e⁻)</div>
+                                        <div className="font-bold text-slate-700">{(maxMolReaksi * nTransfer).toFixed(4)} mol</div>
+                                    </div>
+                                    <div className="bg-white px-3 py-1.5 rounded-lg border border-indigo-100/50 shadow-sm">
+                                        <div className="text-indigo-500 text-[10px] uppercase font-bold">Massa Endapan</div>
+                                        <div className="font-bold text-indigo-700">{massaEndapan.toFixed(3)} gr</div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -564,6 +710,40 @@ export function RedoxSimulation() {
                     <h4 className="text-xs font-bold text-red-800 uppercase tracking-widest mb-4 flex items-center gap-2">
                         <ShieldAlert className="w-4 h-4 text-red-600" /> Panduan Keselamatan Kerja (K3)
                     </h4>
+
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6 relative z-10">
+                        <div className="bg-white border border-red-100 rounded-xl p-3 flex flex-col items-center justify-center text-center gap-2 shadow-sm transition-transform hover:-translate-y-1 hover:shadow-md group">
+                            <div className="w-10 h-10 bg-red-50 group-hover:bg-red-100 transition-colors rounded-full flex items-center justify-center">
+                                <Shirt className="w-5 h-5 text-red-600" />
+                            </div>
+                            <span className="text-[10px] font-bold text-slate-700 leading-tight">Jas<br/>Laboratorium</span>
+                        </div>
+                        <div className="bg-white border border-red-100 rounded-xl p-3 flex flex-col items-center justify-center text-center gap-2 shadow-sm transition-transform hover:-translate-y-1 hover:shadow-md group">
+                            <div className="w-10 h-10 bg-red-50 group-hover:bg-red-100 transition-colors rounded-full flex items-center justify-center">
+                                <Glasses className="w-5 h-5 text-red-600" />
+                            </div>
+                            <span className="text-[10px] font-bold text-slate-700 leading-tight">Kacamata<br/>Pelindung</span>
+                        </div>
+                        <div className="bg-white border border-red-100 rounded-xl p-3 flex flex-col items-center justify-center text-center gap-2 shadow-sm transition-transform hover:-translate-y-1 hover:shadow-md group">
+                            <div className="w-10 h-10 bg-red-50 group-hover:bg-red-100 transition-colors rounded-full flex items-center justify-center">
+                                <Hand className="w-5 h-5 text-red-600" />
+                            </div>
+                            <span className="text-[10px] font-bold text-slate-700 leading-tight">Sarung<br/>Tangan</span>
+                        </div>
+                        <div className="bg-white border border-red-100 rounded-xl p-3 flex flex-col items-center justify-center text-center gap-2 shadow-sm transition-transform hover:-translate-y-1 hover:shadow-md group">
+                            <div className="w-10 h-10 bg-red-50 group-hover:bg-red-100 transition-colors rounded-full flex items-center justify-center">
+                                <Wind className="w-5 h-5 text-red-600" />
+                            </div>
+                            <span className="text-[10px] font-bold text-slate-700 leading-tight">Masker<br/>Respirator</span>
+                        </div>
+                        <div className="bg-white border border-red-100 rounded-xl p-3 flex flex-col items-center justify-center text-center gap-2 shadow-sm transition-transform hover:-translate-y-1 hover:shadow-md group">
+                            <div className="w-10 h-10 bg-red-50 group-hover:bg-red-100 transition-colors rounded-full flex items-center justify-center">
+                                <Footprints className="w-5 h-5 text-red-600" />
+                            </div>
+                            <span className="text-[10px] font-bold text-slate-700 leading-tight">Sepatu<br/>Tertutup</span>
+                        </div>
+                    </div>
+
                     <ul className="text-[12px] text-red-700 space-y-2.5 font-medium relative z-10">
                         {REDOX_KESELAMATAN.map((rule, idx) => (
                             <li key={idx} className="flex items-start gap-2">
@@ -572,6 +752,48 @@ export function RedoxSimulation() {
                             </li>
                         ))}
                     </ul>
+
+                    <div className="mt-6 border-t border-red-200/60 pt-6 relative z-10">
+                        <h4 className="text-[11px] font-bold text-red-800 uppercase tracking-widest mb-5">Simbol Bahaya Global (GHS)</h4>
+                        <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
+                            <div className="flex flex-col items-center gap-3 text-center group">
+                                <div className="w-10 h-10 bg-white border-[2.5px] border-red-600 rotate-45 flex items-center justify-center rounded-sm shadow-sm group-hover:-translate-y-1 transition-transform relative">
+                                    <Flame className="w-5 h-5 text-black -rotate-45" strokeWidth={1.5} />
+                                </div>
+                                <span className="text-[9px] font-bold text-slate-700 uppercase mt-2 leading-tight">Mudah<br/>Terbakar</span>
+                            </div>
+                            <div className="flex flex-col items-center gap-3 text-center group">
+                                <div className="w-10 h-10 bg-white border-[2.5px] border-red-600 rotate-45 flex items-center justify-center rounded-sm shadow-sm group-hover:-translate-y-1 transition-transform relative">
+                                    <Droplets className="w-5 h-5 text-black -rotate-45" strokeWidth={1.5} />
+                                </div>
+                                <span className="text-[9px] font-bold text-slate-700 uppercase mt-2 leading-tight">Korosif<br/>(Corrosive)</span>
+                            </div>
+                            <div className="flex flex-col items-center gap-3 text-center group">
+                                <div className="w-10 h-10 bg-white border-[2.5px] border-red-600 rotate-45 flex items-center justify-center rounded-sm shadow-sm group-hover:-translate-y-1 transition-transform relative">
+                                    <Skull className="w-5 h-5 text-black -rotate-45" strokeWidth={1.5} />
+                                </div>
+                                <span className="text-[9px] font-bold text-slate-700 uppercase mt-2 leading-tight">Beracun<br/>(Toxic)</span>
+                            </div>
+                            <div className="flex flex-col items-center gap-3 text-center group">
+                                <div className="w-10 h-10 bg-white border-[2.5px] border-red-600 rotate-45 flex items-center justify-center rounded-sm shadow-sm group-hover:-translate-y-1 transition-transform relative">
+                                    <Bomb className="w-5 h-5 text-black -rotate-45" strokeWidth={1.5} />
+                                </div>
+                                <span className="text-[9px] font-bold text-slate-700 uppercase mt-2 leading-tight">Mudah<br/>Meledak</span>
+                            </div>
+                            <div className="flex flex-col items-center gap-3 text-center group">
+                                <div className="w-10 h-10 bg-white border-[2.5px] border-red-600 rotate-45 flex items-center justify-center rounded-sm shadow-sm group-hover:-translate-y-1 transition-transform relative">
+                                    <AlertTriangle className="w-5 h-5 text-black -rotate-45" strokeWidth={1.5} />
+                                </div>
+                                <span className="text-[9px] font-bold text-slate-700 uppercase mt-2 leading-tight">Iritasi /<br/>Berbahaya</span>
+                            </div>
+                            <div className="flex flex-col items-center gap-3 text-center group">
+                                <div className="w-10 h-10 bg-white border-[2.5px] border-red-600 rotate-45 flex items-center justify-center rounded-sm shadow-sm group-hover:-translate-y-1 transition-transform relative">
+                                    <Leaf className="w-5 h-5 text-black -rotate-45" strokeWidth={1.5} />
+                                </div>
+                                <span className="text-[9px] font-bold text-slate-700 uppercase mt-2 leading-tight">Bahaya<br/>Lingkungan</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

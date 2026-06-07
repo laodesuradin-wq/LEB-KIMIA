@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { Send, Play, RotateCcw, Thermometer, FlaskConical, Zap, Activity, MessageSquare, Menu, ClipboardList, ShieldAlert, ShieldCheck, Beaker, TrendingUp, Timer, ChevronDown, Table, CheckCircle2, Rotate3D, MousePointer2, Square, Compass } from 'lucide-react';
+import { Send, Play, RotateCcw, Thermometer, FlaskConical, Zap, Activity, MessageSquare, Menu, ClipboardList, ShieldAlert, ShieldCheck, Beaker, TrendingUp, Timer, ChevronDown, Table, CheckCircle2, Rotate3D, MousePointer2, Square, Compass, Shirt, Glasses, Hand, Wind, Footprints, Flame, Skull, Droplets, Bomb, AlertTriangle, Leaf } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { Particles3D } from './components/Particles3D';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ReferenceDot } from 'recharts';
@@ -29,6 +29,40 @@ const ExpandableAlat = ({ alatItem }: { alatItem: any }) => {
     );
 };
 
+const getSafetyIcon = (type: string) => {
+    switch(type) {
+        case 'flammable':
+            return <div className="w-5 h-5 bg-white border border-red-600 rotate-45 flex items-center justify-center rounded-[2px] shadow-sm shrink-0" title="Mudah Terbakar"><Flame className="w-3 h-3 text-black -rotate-45" strokeWidth={2} /></div>;
+        case 'corrosive':
+            return <div className="w-5 h-5 bg-white border border-red-600 rotate-45 flex items-center justify-center rounded-[2px] shadow-sm shrink-0" title="Korosif"><Droplets className="w-3 h-3 text-black -rotate-45" strokeWidth={2} /></div>;
+        case 'toxic':
+            return <div className="w-5 h-5 bg-white border border-red-600 rotate-45 flex items-center justify-center rounded-[2px] shadow-sm shrink-0" title="Beracun"><Skull className="w-3 h-3 text-black -rotate-45" strokeWidth={2} /></div>;
+        case 'explosive':
+            return <div className="w-5 h-5 bg-white border border-red-600 rotate-45 flex items-center justify-center rounded-[2px] shadow-sm shrink-0" title="Mudah Meledak"><Bomb className="w-3 h-3 text-black -rotate-45" strokeWidth={2} /></div>;
+        case 'irritant':
+            return <div className="w-5 h-5 bg-white border border-red-600 rotate-45 flex items-center justify-center rounded-[2px] shadow-sm shrink-0" title="Iritasi/Berbahaya"><AlertTriangle className="w-3 h-3 text-black -rotate-45" strokeWidth={2} /></div>;
+        case 'environment':
+            return <div className="w-5 h-5 bg-white border border-red-600 rotate-45 flex items-center justify-center rounded-[2px] shadow-sm shrink-0" title="Bahaya Lingkungan"><Leaf className="w-3 h-3 text-black -rotate-45" strokeWidth={2} /></div>;
+        case 'safe':
+            return <div className="w-5 h-5 bg-white border border-emerald-500 rounded-full flex items-center justify-center shadow-sm shrink-0" title="Aman"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" strokeWidth={2} /></div>;
+        default:
+            return null;
+    }
+};
+
+const getSafetyLabel = (type: string) => {
+    switch(type) {
+        case 'flammable': return 'Mudah Terbakar';
+        case 'corrosive': return 'Korosif';
+        case 'toxic': return 'Beracun';
+        case 'explosive': return 'Mudah Meledak';
+        case 'irritant': return 'Iritasi / Berbahaya';
+        case 'environment': return 'Bahaya Lingkungan';
+        case 'safe': return 'Aman';
+        default: return '';
+    }
+};
+
 const ExpandableBahan = ({ bahanItem }: { bahanItem: any }) => {
     const [isOpen, setIsOpen] = useState(false);
     return (
@@ -37,17 +71,36 @@ const ExpandableBahan = ({ bahanItem }: { bahanItem: any }) => {
             <div className="flex-1 select-none">
                 <div className="flex items-center justify-between">
                     <strong className="text-slate-800 group-hover:text-emerald-600 transition-colors">{bahanItem.nama}</strong>
-                    <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                    <div className="flex items-center gap-2">
+                        {bahanItem.symbols && (
+                            <div className="flex items-center gap-1.5 mr-1">
+                                {bahanItem.symbols.map((sym: string, i: number) => <React.Fragment key={i}>{getSafetyIcon(sym)}</React.Fragment>)}
+                            </div>
+                        )}
+                        <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                    </div>
                 </div>
                 {isOpen && (
                     <div className="mt-1 flex flex-col gap-1.5 animate-in fade-in slide-in-from-top-1">
                         <span className="text-slate-500 text-[11px]">{bahanItem.desc}</span>
-                        <div className={`p-2 mt-1 rounded border text-[11px] font-medium leading-relaxed ${bahanItem.isHazardous ? 'bg-red-50 border-red-200 text-red-800' : 'bg-emerald-50 border-emerald-200 text-emerald-800'}`}>
-                            <div className="flex items-center gap-1.5 mb-1.5">
+                        <div className={`p-2 mt-2 rounded border text-[11px] font-medium leading-relaxed ${bahanItem.isHazardous ? 'bg-red-50 border-red-200 text-red-800' : 'bg-emerald-50 border-emerald-200 text-emerald-800'}`}>
+                            <div className="flex items-center gap-2 mb-2 pb-1 border-b border-opacity-50 border-slate-300">
                                 {bahanItem.isHazardous ? <ShieldAlert className="w-3.5 h-3.5 text-red-600" /> : <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />}
-                                <strong className={bahanItem.isHazardous ? "text-red-700" : "text-emerald-700"}>{bahanItem.isHazardous ? 'BAHAYA' : 'AMAN'}</strong>
+                                <strong className={bahanItem.isHazardous ? "text-red-700" : "text-emerald-700"}>{bahanItem.isHazardous ? 'INFORMASI BAHAYA' : 'AMAN'}</strong>
                             </div>
-                            {bahanItem.bahayaDesc}
+                            {bahanItem.symbols && (
+                                <div className="flex flex-wrap gap-2 mb-2">
+                                    {bahanItem.symbols.map((sym: string, i: number) => (
+                                        <div key={i} className="flex items-center gap-1.5 bg-white/60 px-2 py-1 rounded border border-white/40">
+                                            {getSafetyIcon(sym)}
+                                            <span className="text-[9px] font-bold uppercase tracking-wider">{getSafetyLabel(sym)}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                            <div className="flex flex-col gap-2">
+                                {bahanItem.bahayaDesc}
+                            </div>
                         </div>
                     </div>
                 )}
@@ -73,6 +126,7 @@ const BAHAN_KIMIA = [
         id: 'H2O2', 
         nama: 'Hidrogen Peroksida (H₂O₂)', 
         desc: 'Penguraian Peroksida', 
+        symbols: ['corrosive', 'irritant'],
         colorA: '#38bdf8', 
         colorB: '#0ea5e9', 
         Ea: 50000, 
@@ -87,15 +141,16 @@ const BAHAN_KIMIA = [
             { nama: 'Sumbat Karet & Pipa Kaca', desc: 'Bila perlu menangkap gas O₂ yang dihasilkan.' }
         ],
         bahan: [
-            { nama: 'Hidrogen Peroksida (H₂O₂)', desc: 'Bahan reaktan utama yang akan terdekomposisi.', isHazardous: true, bahayaDesc: 'Korosif dan oksidator kuat. Jika terkena kulit menyebabkan sel memutih, iritasi parah, dan luka bakar.' },
-            { nama: 'Serbuk KI atau MnO₂', desc: 'Katalis untuk mempercepat reaksi penguraian.', isHazardous: true, bahayaDesc: 'Dapat menyebabkan iritasi pada kulit, mata, dan saluran pernapasan jika dihirup.' },
-            { nama: 'Aquades', desc: 'Pelarut universal.', isHazardous: false, bahayaDesc: 'Aman untuk bersentuhan langsung dengan kulit.' }
+            { nama: 'Hidrogen Peroksida (H₂O₂)', desc: 'Bahan reaktan utama yang akan terdekomposisi.', isHazardous: true, bahayaDesc: 'Korosif dan oksidator kuat. Jika terkena kulit menyebabkan sel memutih, iritasi parah, dan luka bakar.', symbols: ['corrosive', 'irritant'] },
+            { nama: 'Serbuk KI atau MnO₂', desc: 'Katalis untuk mempercepat reaksi penguraian.', isHazardous: true, bahayaDesc: 'Dapat menyebabkan iritasi pada kulit, mata, dan saluran pernapasan jika dihirup.', symbols: ['irritant'] },
+            { nama: 'Aquades', desc: 'Pelarut universal.', isHazardous: false, bahayaDesc: 'Aman untuk bersentuhan langsung dengan kulit.', symbols: ['safe'] }
         ]
     },
     { 
         id: 'Na2S2O3', 
         nama: 'Natrium Tiosulfat + HCl', 
         desc: 'Pembentukan Endapan Belerang', 
+        symbols: ['corrosive', 'toxic', 'irritant'],
         colorA: '#facc15', 
         colorB: '#94a3b8', 
         Ea: 55000, 
@@ -109,15 +164,16 @@ const BAHAN_KIMIA = [
             { nama: 'Termometer', desc: 'Memantau suhu awal larutan sebelum direaksikan.' }
         ],
         bahan: [
-            { nama: 'Natrium Tiosulfat (Na₂S₂O₃)', desc: 'Reaktan utama pemberi ion tiosulfat.', isHazardous: false, bahayaDesc: 'Secara umum aman, namun dapat menyebabkan iritasi ringan pada kulit sensitif.' },
-            { nama: 'Asam Klorida (HCl)', desc: 'Reaktan utama pemberi ion H+.', isHazardous: true, bahayaDesc: 'Sangat korosif. Jika mengenai kulit dapat menyebabkan luka bakar kimia yang parah dan rasa perih yang kuat.' },
-            { nama: 'Aquades', desc: 'Bahan pengencer.', isHazardous: false, bahayaDesc: 'Aman dan tidak memberikan dampak pada tubuh.' }
+            { nama: 'Natrium Tiosulfat (Na₂S₂O₃)', desc: 'Reaktan utama pemberi ion tiosulfat.', isHazardous: false, bahayaDesc: 'Secara umum aman, namun dapat menyebabkan iritasi ringan pada kulit sensitif.', symbols: ['safe', 'irritant'] },
+            { nama: 'Asam Klorida (HCl)', desc: 'Reaktan utama pemberi ion H+.', isHazardous: true, bahayaDesc: 'Sangat korosif. Jika mengenai kulit dapat menyebabkan luka bakar kimia yang parah dan rasa perih yang kuat.', symbols: ['corrosive', 'toxic'] },
+            { nama: 'Aquades', desc: 'Bahan pengencer.', isHazardous: false, bahayaDesc: 'Aman dan tidak memberikan dampak pada tubuh.', symbols: ['safe'] }
         ]
     },
     { 
         id: 'Mg', 
         nama: 'Pita Magnesium + HCl', 
         desc: 'Produksi Gas Hidrogen', 
+        symbols: ['flammable', 'corrosive', 'toxic'],
         colorA: '#cbd5e1', 
         colorB: '#94a3b8', 
         Ea: 45000, 
@@ -131,15 +187,16 @@ const BAHAN_KIMIA = [
             { nama: 'Stopwatch', desc: 'Mengukur durasi reaksi hingga pita magnesium habis.' }
         ],
         bahan: [
-            { nama: 'Pita Magnesium (Mg)', desc: 'Logam reaktif yang memberikan luas permukaan.', isHazardous: true, bahayaDesc: 'Padatan logam ringan. Dalam bentuk serbuk sangat mudah terbakar dan nyalanya sangat terang (merusak retina). Cukup aman disentuh jika dalam bentuk pita, namun jangan sampai tertelan.' },
-            { nama: 'Asam Klorida (HCl)', desc: 'Larutan asam yang akan bereaksi dengan logam Mg.', isHazardous: true, bahayaDesc: 'Asam kuat yang bersifat korosif. Mengakibatkan luka bakar jika tersiram ke kulit atau mata.' },
-            { nama: 'Aquades', desc: 'Pelarut.', isHazardous: false, bahayaDesc: 'Tidak berbahaya.' }
+            { nama: 'Pita Magnesium (Mg)', desc: 'Logam reaktif yang memberikan luas permukaan.', isHazardous: true, bahayaDesc: 'Padatan logam ringan. Dalam bentuk serbuk sangat mudah terbakar dan nyalanya sangat terang (merusak retina). Cukup aman disentuh jika dalam bentuk pita, namun jangan sampai tertelan.', symbols: ['flammable', 'irritant'] },
+            { nama: 'Asam Klorida (HCl)', desc: 'Larutan asam yang akan bereaksi dengan logam Mg.', isHazardous: true, bahayaDesc: 'Asam kuat yang bersifat korosif. Mengakibatkan luka bakar jika tersiram ke kulit atau mata.', symbols: ['corrosive', 'toxic'] },
+            { nama: 'Aquades', desc: 'Pelarut.', isHazardous: false, bahayaDesc: 'Tidak berbahaya.', symbols: ['safe'] }
         ]
     },
     { 
         id: 'CaCO3', 
         nama: 'Kalsium Karbonat + HCl', 
-        desc: 'Kalsium Klorida dan CO₂', 
+        desc: 'Kalsium Klorida dan CO₂',
+        symbols: ['corrosive', 'toxic'], 
         colorA: '#e2e8f0', 
         colorB: '#94a3b8', 
         Ea: 48000, 
@@ -153,15 +210,16 @@ const BAHAN_KIMIA = [
             { nama: 'Stopwatch', desc: 'Mencatat durasi hingga seluruh zat larut / gelembung berhenti.' }
         ],
         bahan: [
-            { nama: 'Keping pualam / CaCO₃ padat', desc: 'Sumber Kalsium Karbonat (Bentuk kasar).', isHazardous: false, bahayaDesc: 'Aman untuk disentuh. Menghirup debu secara berlebihan dapat menyebabkan iritasi saluran pernapasan ringan.' },
-            { nama: 'Serbuk pualam / CaCO₃', desc: 'Sumber Kalsium Karbonat (Bentuk halus).', isHazardous: false, bahayaDesc: 'Debu berlebih dapat mengiritasi mata dan saluran pernapasan.' },
-            { nama: 'Asam Klorida (HCl)', desc: 'Reaktan utama.', isHazardous: true, bahayaDesc: 'Bahan kimia korosif. Berpotensi menimbulkan iritasi kulit hingga luka bakar jika tidak dibilas.' }
+            { nama: 'Keping pualam / CaCO₃ padat', desc: 'Sumber Kalsium Karbonat (Bentuk kasar).', isHazardous: false, bahayaDesc: 'Aman untuk disentuh. Menghirup debu secara berlebihan dapat menyebabkan iritasi saluran pernapasan ringan.', symbols: ['safe'] },
+            { nama: 'Serbuk pualam / CaCO₃', desc: 'Sumber Kalsium Karbonat (Bentuk halus).', isHazardous: false, bahayaDesc: 'Debu berlebih dapat mengiritasi mata dan saluran pernapasan.', symbols: ['irritant'] },
+            { nama: 'Asam Klorida (HCl)', desc: 'Reaktan utama.', isHazardous: true, bahayaDesc: 'Bahan kimia korosif. Berpotensi menimbulkan iritasi kulit hingga luka bakar jika tidak dibilas.', symbols: ['corrosive', 'toxic'] }
         ]
     },
     { 
         id: 'KMnO4', 
         nama: 'KMnO₄ + H₂C₂O₄', 
         desc: 'Reaksi Redoks Autokatalitik', 
+        symbols: ['toxic', 'environment', 'corrosive'],
         colorA: '#d946ef', 
         colorB: '#e879f9', 
         Ea: 60000, 
@@ -175,9 +233,9 @@ const BAHAN_KIMIA = [
             { nama: 'Stopwatch', desc: 'Waktu yang diukur sejauh mana reaksi autokatalitik berjalan.' }
         ],
         bahan: [
-            { nama: 'Kalium Permanganat (KMnO₄)', desc: 'Titran & indikator auto-oksidasi.', isHazardous: true, bahayaDesc: 'Zat pengoksidasi kuat. Berbahaya apabila tertelan. Bila terkena kulit akan meninggalkan noda coklat/ungu pekat dan menyebabkan iritasi.' },
-            { nama: 'Asam Oksalat (H₂C₂O₄)', desc: 'Reduktor.', isHazardous: true, bahayaDesc: 'Beracun dan korosif. Kontak dengan kulit menyebabkan luka bakar; terabsorpsi dalam kulit bisa merusak ginjal.' },
-            { nama: 'Asam Sulfat (H₂SO₄)', desc: 'Penyesuai suasana asam.', isHazardous: true, bahayaDesc: 'Sangat amat korosif. Menghancurkan jaringan tubuh secara cepat dan menghasilkan panas ekstrem bila kena air (luka bakar termal dan kimiawi).' }
+            { nama: 'Kalium Permanganat (KMnO₄)', desc: 'Titran & indikator auto-oksidasi.', isHazardous: true, bahayaDesc: 'Zat pengoksidasi kuat. Berbahaya apabila tertelan. Bila terkena kulit akan meninggalkan noda coklat/ungu pekat dan menyebabkan iritasi.', symbols: ['toxic', 'environment'] },
+            { nama: 'Asam Oksalat (H₂C₂O₄)', desc: 'Reduktor.', isHazardous: true, bahayaDesc: 'Beracun dan korosif. Kontak dengan kulit menyebabkan luka bakar; terabsorpsi dalam kulit bisa merusak ginjal.', symbols: ['toxic', 'corrosive'] },
+            { nama: 'Asam Sulfat (H₂SO₄)', desc: 'Penyesuai suasana asam.', isHazardous: true, bahayaDesc: 'Sangat amat korosif. Menghancurkan jaringan tubuh secara cepat dan menghasilkan panas ekstrem bila kena air (luka bakar termal dan kimiawi).', symbols: ['corrosive'] }
         ]
     }
 ];
@@ -1325,7 +1383,14 @@ export default function App() {
                                         : 'bg-white border-slate-200 hover:border-indigo-200 hover:bg-slate-50'
                                     }`}
                                 >
-                                    <div className={`text-xs font-bold ${bahanKimia === bahan.id ? 'text-indigo-700' : 'text-slate-700 group-hover:text-indigo-600'}`}>{bahan.nama}</div>
+                                    <div className="flex items-center justify-between">
+                                        <div className={`text-xs font-bold ${bahanKimia === bahan.id ? 'text-indigo-700' : 'text-slate-700 group-hover:text-indigo-600'}`}>{bahan.nama}</div>
+                                        {bahan.symbols && (
+                                            <div className="flex items-center gap-1">
+                                                {bahan.symbols.map((sym: string, i: number) => <React.Fragment key={i}>{getSafetyIcon(sym)}</React.Fragment>)}
+                                            </div>
+                                        )}
+                                    </div>
                                     <div className="text-[10px] text-slate-500 mt-0.5">{bahan.desc}</div>
                                 </button>
                             ))}
@@ -1850,6 +1915,32 @@ export default function App() {
                     </div>
                 </div>
             </section>
+
+            {/* View Alat & Bahan (Full Width / Row 7) */}
+            <section className="lg:col-span-12 bg-white/70 backdrop-blur-xl border border-slate-200/60 p-6 rounded-3xl shadow-xl shadow-slate-200/40 relative flex flex-col mt-4 lg:mt-0">
+                <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-6 flex items-center gap-2">
+                    <Beaker className="w-4 h-4 text-indigo-500" /> Alat & Bahan Praktikum
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative z-10">
+                    <div className="bg-slate-50 border border-slate-200 rounded-xl p-5">
+                        <h4 className="text-xs font-bold text-slate-800 uppercase tracking-widest mb-4">Alat Tersedia</h4>
+                        <ul className="text-[12px] text-slate-600 space-y-2.5 font-medium">
+                            {activeBahanData.alat.map((alatItem, idx) => (
+                                <ExpandableAlat key={idx} alatItem={alatItem} />
+                            ))}
+                        </ul>
+                    </div>
+                    
+                    <div className="bg-slate-50 border border-slate-200 rounded-xl p-5">
+                        <h4 className="text-xs font-bold text-slate-800 uppercase tracking-widest mb-4">Bahan Kimia</h4>
+                        <ul className="text-[12px] text-slate-600 space-y-2.5 font-medium">
+                            {activeBahanData.bahan.map((bahanItem, idx) => (
+                                <ExpandableBahan key={idx} bahanItem={bahanItem} />
+                            ))}
+                        </ul>
+                    </div>
+                </div>
+            </section>
         </main>
         ) : (
             <RedoxSimulation />
@@ -2023,33 +2114,98 @@ export default function App() {
                         <ShieldAlert className="w-6 h-6 text-indigo-400" />
                     </div>
                     <div>
-                        <h2 className="text-lg font-bold tracking-tight text-white leading-tight">Standar Operasional Laboratorium</h2>
-                        <p className="text-xs text-slate-400 font-medium">Klik pada nama alat atau bahan untuk melihat fungsi dan bahayanya.</p>
+                        <h2 className="text-lg font-bold tracking-tight text-white leading-tight">Panduan Keselamatan Kerja & SOP Laboratorium</h2>
+                        <p className="text-xs text-slate-400 font-medium">Harap pahami seluruh panduan keselamatan dan prosedur di bawah ini sebelum memulai eksperimen.</p>
                     </div>
                 </div>
                 
                 <div className="p-6 overflow-y-auto space-y-8 flex-1">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="bg-slate-50 border border-slate-200 rounded-xl p-5">
-                            <h3 className="text-xs font-bold text-slate-800 uppercase tracking-widest mb-4 flex items-center gap-2">
-                                <Beaker className="w-4 h-4 text-indigo-500" /> Alat Tersedia
-                            </h3>
-                            <ul className="text-[12px] text-slate-600 space-y-2.5 font-medium">
-                                {activeBahanData.alat.map((alatItem, idx) => (
-                                    <ExpandableAlat key={idx} alatItem={alatItem} />
-                                ))}
-                            </ul>
-                        </div>
+                    <div className="bg-red-50 border border-red-200 rounded-xl p-5">
+                        <h3 className="text-xs font-bold text-red-800 uppercase tracking-widest mb-4 flex items-center gap-2">
+                            <ShieldAlert className="w-4 h-4 text-red-600" /> Panduan Keselamatan Kerja di Laboratorium
+                        </h3>
                         
-                        <div className="bg-slate-50 border border-slate-200 rounded-xl p-5">
-                            <h3 className="text-xs font-bold text-slate-800 uppercase tracking-widest mb-4 flex items-center gap-2">
-                                <FlaskConical className="w-4 h-4 text-emerald-500" /> Bahan Kimia
-                            </h3>
-                            <ul className="text-[12px] text-slate-600 space-y-2.5 font-medium">
-                                {activeBahanData.bahan.map((bahanItem, idx) => (
-                                    <ExpandableBahan key={idx} bahanItem={bahanItem} />
-                                ))}
-                            </ul>
+                        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+                            <div className="bg-white border border-red-100 rounded-xl p-3 flex flex-col items-center justify-center text-center gap-2 shadow-sm transition-transform hover:-translate-y-1 hover:shadow-md group">
+                                <div className="w-10 h-10 bg-red-50 group-hover:bg-red-100 transition-colors rounded-full flex items-center justify-center">
+                                    <Shirt className="w-5 h-5 text-red-600" />
+                                </div>
+                                <span className="text-[10px] font-bold text-slate-700 leading-tight">Jas<br/>Laboratorium</span>
+                            </div>
+                            <div className="bg-white border border-red-100 rounded-xl p-3 flex flex-col items-center justify-center text-center gap-2 shadow-sm transition-transform hover:-translate-y-1 hover:shadow-md group">
+                                <div className="w-10 h-10 bg-red-50 group-hover:bg-red-100 transition-colors rounded-full flex items-center justify-center">
+                                    <Glasses className="w-5 h-5 text-red-600" />
+                                </div>
+                                <span className="text-[10px] font-bold text-slate-700 leading-tight">Kacamata<br/>Pelindung</span>
+                            </div>
+                            <div className="bg-white border border-red-100 rounded-xl p-3 flex flex-col items-center justify-center text-center gap-2 shadow-sm transition-transform hover:-translate-y-1 hover:shadow-md group">
+                                <div className="w-10 h-10 bg-red-50 group-hover:bg-red-100 transition-colors rounded-full flex items-center justify-center">
+                                    <Hand className="w-5 h-5 text-red-600" />
+                                </div>
+                                <span className="text-[10px] font-bold text-slate-700 leading-tight">Sarung<br/>Tangan</span>
+                            </div>
+                            <div className="bg-white border border-red-100 rounded-xl p-3 flex flex-col items-center justify-center text-center gap-2 shadow-sm transition-transform hover:-translate-y-1 hover:shadow-md group">
+                                <div className="w-10 h-10 bg-red-50 group-hover:bg-red-100 transition-colors rounded-full flex items-center justify-center">
+                                    <Wind className="w-5 h-5 text-red-600" />
+                                </div>
+                                <span className="text-[10px] font-bold text-slate-700 leading-tight">Masker<br/>Respirator</span>
+                            </div>
+                            <div className="bg-white border border-red-100 rounded-xl p-3 flex flex-col items-center justify-center text-center gap-2 shadow-sm transition-transform hover:-translate-y-1 hover:shadow-md group">
+                                <div className="w-10 h-10 bg-red-50 group-hover:bg-red-100 transition-colors rounded-full flex items-center justify-center">
+                                    <Footprints className="w-5 h-5 text-red-600" />
+                                </div>
+                                <span className="text-[10px] font-bold text-slate-700 leading-tight">Sepatu<br/>Tertutup</span>
+                            </div>
+                        </div>
+
+                        <ul className="text-[13px] text-slate-700 space-y-2.5 list-disc list-inside marker:text-red-500 font-medium">
+                            <li><strong className="text-slate-800">Kenali Bahan Kimia:</strong> Baca petunjuk bahaya (simbol keselamatan) dan pahami sifat fisik serta kimia bahan yang digunakan.</li>
+                            <li><strong className="text-slate-800">Aturan Dasar:</strong> Dilarang keras makan, minum, atau menghirup dan mencicipi zat kimia apa pun secara langsung.</li>
+                            <li><strong className="text-slate-800">Kondisi Darurat:</strong> Ketahui letak dan penggunaan kotak P3K, alat pemadam api (APAR), serta wastafel cuci mata.</li>
+                            <li><strong className="text-slate-800">Pengelolaan Limbah:</strong> Buang limbah sisa eksperimen ke pembuangan spesifik, jangan langsung ke saluran air umum.</li>
+                            <li><strong className="text-slate-800">Kebersihan Akhir:</strong> Bersihkan seluruh meja dan alat setelah digunakan serta cuci tangan dengan sabun dan air mengalir.</li>
+                        </ul>
+
+                        <div className="mt-8 border-t border-red-200 pt-6">
+                            <h4 className="text-[11px] font-bold text-red-800 uppercase tracking-widest mb-5">Simbol Bahaya Global (GHS)</h4>
+                            <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
+                                <div className="flex flex-col items-center gap-3 text-center group">
+                                    <div className="w-12 h-12 bg-white border-[3px] border-red-600 rotate-45 flex items-center justify-center rounded-sm shadow-sm group-hover:-translate-y-1 transition-transform relative">
+                                        <Flame className="w-6 h-6 text-black -rotate-45" strokeWidth={1.5} />
+                                    </div>
+                                    <span className="text-[9px] font-bold text-slate-700 uppercase mt-2 leading-tight">Mudah<br/>Terbakar</span>
+                                </div>
+                                <div className="flex flex-col items-center gap-3 text-center group">
+                                    <div className="w-12 h-12 bg-white border-[3px] border-red-600 rotate-45 flex items-center justify-center rounded-sm shadow-sm group-hover:-translate-y-1 transition-transform relative">
+                                        <Droplets className="w-6 h-6 text-black -rotate-45" strokeWidth={1.5} />
+                                    </div>
+                                    <span className="text-[9px] font-bold text-slate-700 uppercase mt-2 leading-tight">Korosif<br/>(Corrosive)</span>
+                                </div>
+                                <div className="flex flex-col items-center gap-3 text-center group">
+                                    <div className="w-12 h-12 bg-white border-[3px] border-red-600 rotate-45 flex items-center justify-center rounded-sm shadow-sm group-hover:-translate-y-1 transition-transform relative">
+                                        <Skull className="w-6 h-6 text-black -rotate-45" strokeWidth={1.5} />
+                                    </div>
+                                    <span className="text-[9px] font-bold text-slate-700 uppercase mt-2 leading-tight">Beracun<br/>(Toxic)</span>
+                                </div>
+                                <div className="flex flex-col items-center gap-3 text-center group">
+                                    <div className="w-12 h-12 bg-white border-[3px] border-red-600 rotate-45 flex items-center justify-center rounded-sm shadow-sm group-hover:-translate-y-1 transition-transform relative">
+                                        <Bomb className="w-6 h-6 text-black -rotate-45" strokeWidth={1.5} />
+                                    </div>
+                                    <span className="text-[9px] font-bold text-slate-700 uppercase mt-2 leading-tight">Mudah<br/>Meledak</span>
+                                </div>
+                                <div className="flex flex-col items-center gap-3 text-center group">
+                                    <div className="w-12 h-12 bg-white border-[3px] border-red-600 rotate-45 flex items-center justify-center rounded-sm shadow-sm group-hover:-translate-y-1 transition-transform relative">
+                                        <AlertTriangle className="w-6 h-6 text-black -rotate-45" strokeWidth={1.5} />
+                                    </div>
+                                    <span className="text-[9px] font-bold text-slate-700 uppercase mt-2 leading-tight">Iritasi /<br/>Berbahaya</span>
+                                </div>
+                                <div className="flex flex-col items-center gap-3 text-center group">
+                                    <div className="w-12 h-12 bg-white border-[3px] border-red-600 rotate-45 flex items-center justify-center rounded-sm shadow-sm group-hover:-translate-y-1 transition-transform relative">
+                                        <Leaf className="w-6 h-6 text-black -rotate-45" strokeWidth={1.5} />
+                                    </div>
+                                    <span className="text-[9px] font-bold text-slate-700 uppercase mt-2 leading-tight">Bahaya<br/>Lingkungan</span>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     
@@ -2058,7 +2214,7 @@ export default function App() {
                             <ClipboardList className="w-4 h-4 text-amber-600" /> Tahapan SOP Praktikum
                         </h3>
                         <ol className="text-[13px] text-slate-700 space-y-2.5 list-decimal list-inside marker:text-amber-600 marker:font-bold font-medium">
-                            <li><strong className="text-slate-800">Persiapan APD:</strong> Asumsikan Anda menggunakan Jas Lab dan Kacamata Pelindung (Goggles) secara virtual.</li>
+                            <li><strong className="text-slate-800">Persiapan APD:</strong> Kenakan Jas Lab, Kacamata Pelindung, Sarung Tangan, Masker, dan Sepatu Tertutup sebelum memulai praktikum.</li>
                             <li><strong className="text-slate-800">Penyesuaian Konsentrasi:</strong> Gunakan pipet kontrol untuk menetapkan tingkat konsentrasi reaktan yang tepat.</li>
                             <li><strong className="text-slate-800">Kalibrasi Suhu:</strong> Atur suhu pada <em>Hot Plate</em> mulai dari rentang aman sebelum memulai pemanasan ekstrim.</li>
                             <li><strong className="text-slate-800">Penambahan Katalis:</strong> Klik tombol aktivasi <em>Katalis</em> jika bereksperimen dengan jalur alternatif rendah energi.</li>
