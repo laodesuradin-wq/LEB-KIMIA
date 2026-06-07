@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { FlaskConical, Zap, Play, RotateCcw, Activity, ChevronDown, ShieldAlert, ShieldCheck, Beaker, Shirt, Glasses, Hand, Wind, Footprints, Flame, Skull, Droplets, Bomb, AlertTriangle, Leaf, CheckCircle2 } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { FlaskConical, Zap, Play, RotateCcw, Activity, ChevronDown, ShieldAlert, ShieldCheck, Beaker, Shirt, Glasses, Hand, Wind, Footprints, Flame, Skull, Droplets, Bomb, AlertTriangle, Leaf, CheckCircle2, Calculator } from 'lucide-react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, ReferenceLine } from 'recharts';
+import { SpillOverlay } from './SpillOverlay';
 
 const METALS = [
   { id: 'Zn', name: 'Seng (Zn)', E0: -0.76, color: 'bg-slate-300', Ar: 65.4, n: 2 },
@@ -185,6 +186,19 @@ export function RedoxSimulation() {
   const [isReacting, setIsReacting] = useState(false);
   const [progress, setProgress] = useState(0);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [showFormulaModal, setShowFormulaModal] = useState(false);
+  const [spillEvent, setSpillEvent] = useState(false);
+  const spillEventRef = useRef(false);
+  const sudahPernahTumpahRef = useRef(false);
+
+  const [apdChecklist, setApdChecklist] = useState({
+    jasLab: false,
+    kacamata: false,
+    sarungTangan: false,
+    masker: false,
+    sepatu: false,
+  });
+  const isApdComplete = Object.values(apdChecklist).every(Boolean);
 
   const selectedMetal = METALS.find(m => m.id === metalId)!;
   const selectedSolution = SOLUTIONS.find(s => s.id === solutionId)!;
@@ -233,6 +247,14 @@ export function RedoxSimulation() {
     let timer: any;
     if (isReacting && willReact && progress < 100) {
       timer = setInterval(() => {
+        if (!spillEventRef.current && !sudahPernahTumpahRef.current && Math.random() < 0.0025) {
+            setSpillEvent(true);
+            spillEventRef.current = true;
+            sudahPernahTumpahRef.current = true;
+            setIsReacting(false);
+            return;
+        }
+
         setProgress(p => {
           if (p >= 100) {
             clearInterval(timer);
@@ -249,8 +271,16 @@ export function RedoxSimulation() {
   }, [isReacting, willReact, progress, solutionMolarity, durasi]);
 
   const handleStart = () => {
+    setSpillEvent(false);
+    spillEventRef.current = false;
     setIsReacting(true);
     setProgress(0);
+  };
+
+  const lanjutkanReaksi = () => {
+    setSpillEvent(false);
+    spillEventRef.current = false;
+    performReset();
   };
 
   const handleReset = () => {
@@ -264,6 +294,8 @@ export function RedoxSimulation() {
   const performReset = () => {
     setIsReacting(false);
     setProgress(0);
+    setSpillEvent(false);
+    spillEventRef.current = false;
     setShowResetConfirm(false);
   };
 
@@ -397,23 +429,55 @@ export function RedoxSimulation() {
                     </div>
                 </div>
 
-                <div className="mt-8 flex gap-3">
-                    {!isReacting || progress === 100 ? (
-                        <button 
-                            onClick={progress === 100 ? () => setShowResetConfirm(true) : handleStart}
-                            className={`flex-1 py-3 px-4 rounded-xl font-bold flex items-center justify-center gap-2 text-white transition-all ${progress === 100 ? 'bg-slate-700 hover:bg-slate-800 shadow-md' : 'bg-indigo-600 hover:bg-indigo-700 shadow-lg hover:shadow-indigo-500/30'}`}
-                        >
-                            {progress === 100 ? <><RotateCcw className="w-5 h-5"/> Reset</> : <><Play className="w-5 h-5"/> Reaksikan</>}
-                        </button>
-                    ) : (
-                        <button 
-                            disabled
-                            className="flex-1 py-3 px-4 rounded-xl font-bold flex items-center justify-center gap-2 bg-slate-200 text-slate-500 cursor-not-allowed"
-                        >
-                            <span className="w-4 h-4 border-2 border-slate-400 border-r-transparent rounded-full animate-spin"></span>
-                            Proses... {Math.round(progress)}%
-                        </button>
-                    )}
+                <div className="mt-8 flex flex-col gap-3">
+                    <div className="space-y-3 mb-2">
+                        <div className="flex items-center justify-between mb-2">
+                            <label className="flex items-center gap-1.5 text-xs font-bold uppercase text-slate-500">
+                                <ShieldCheck className="w-4 h-4 text-emerald-500" /> Checklist APD
+                            </label>
+                            <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${isApdComplete ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
+                                {isApdComplete ? 'LENGKAP' : 'BELUM LENGKAP'}
+                            </span>
+                        </div>
+                        <div className="grid grid-cols-5 gap-1.5">
+                            {[
+                                { id: 'jasLab', label: 'Jas Lab', icon: <Shirt className="w-4 h-4" /> },
+                                { id: 'kacamata', label: 'Kacamata', icon: <Glasses className="w-4 h-4" /> },
+                                { id: 'sarungTangan', label: 'S. Tangan', icon: <Hand className="w-4 h-4" /> },
+                                { id: 'masker', label: 'Masker', icon: <Wind className="w-4 h-4" /> },
+                                { id: 'sepatu', label: 'Sepatu', icon: <Footprints className="w-4 h-4" /> },
+                            ].map(apd => (
+                                <button 
+                                    key={apd.id}
+                                    onClick={() => setApdChecklist(prev => ({ ...prev, [apd.id]: !prev[apd.id as keyof typeof prev] }))}
+                                    className={`flex flex-col items-center justify-center py-2 px-1 rounded-xl border transition-all ${apdChecklist[apd.id as keyof typeof apdChecklist] ? 'bg-emerald-50 border-emerald-300 text-emerald-700 shadow-sm' : 'bg-white border-slate-200 text-slate-400 hover:bg-slate-50'}`}
+                                    title={apd.label}
+                                >
+                                    {apd.icon}
+                                    <span className="text-[8px] font-bold uppercase mt-1 leading-tight text-center">{apd.label}</span>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                    <div className="flex gap-3">
+                        {!isReacting || progress === 100 ? (
+                            <button 
+                                disabled={progress !== 100 && !isApdComplete}
+                                onClick={progress === 100 ? () => setShowResetConfirm(true) : handleStart}
+                                className={`flex-1 py-3 px-4 rounded-xl font-bold flex items-center justify-center gap-2 transition-all ${progress === 100 ? 'bg-slate-700 text-white hover:bg-slate-800 shadow-md' : (isApdComplete ? 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-lg hover:shadow-indigo-500/30' : 'bg-slate-200 text-slate-400 cursor-not-allowed')}`}
+                            >
+                                {progress === 100 ? <><RotateCcw className="w-5 h-5"/> Reset</> : <><Play className="w-5 h-5"/> Reaksikan</>}
+                            </button>
+                        ) : (
+                            <button 
+                                disabled
+                                className="flex-1 py-3 px-4 rounded-xl font-bold flex items-center justify-center gap-2 bg-slate-200 text-slate-500 cursor-not-allowed"
+                            >
+                                <span className="w-4 h-4 border-2 border-slate-400 border-r-transparent rounded-full animate-spin"></span>
+                                Proses... {Math.round(progress)}%
+                            </button>
+                        )}
+                    </div>
                 </div>
             </div>
 
@@ -439,6 +503,15 @@ export function RedoxSimulation() {
         {/* Panel Kanan: Visualisasi & Hasil */}
         <div className="lg:col-span-8 flex flex-col gap-6">
             <div className="bg-slate-900 rounded-3xl shadow-xl border border-slate-800 p-8 flex flex-col items-center justify-center relative min-h-[400px] overflow-hidden">
+                <button 
+                    onClick={() => setShowFormulaModal(true)}
+                    className="absolute top-4 right-4 z-40 bg-slate-800/80 backdrop-blur-md border border-slate-700 hover:bg-slate-700/80 text-slate-300 font-bold font-mono text-xs px-3 py-1.5 rounded-lg flex items-center gap-2 transition-colors shadow-lg"
+                >
+                    <Calculator className="w-4 h-4 text-emerald-400" />
+                    Rumus
+                </button>
+
+                {spillEvent && <SpillOverlay onCleaned={lanjutkanReaksi} />}
                 <div className="flex flex-col items-center relative z-20 mt-4">
                     {/* Sirkuit Eksternal: Voltmeter, Baterai & Kabel */}
                     <div className="relative w-56 h-20 flex flex-col items-center justify-center z-30 mb-2">
@@ -797,6 +870,79 @@ export function RedoxSimulation() {
                 </div>
             </div>
         </div>
+
+        {showFormulaModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col animate-in zoom-in-95 duration-300">
+                <div className="bg-slate-900 px-6 py-6 border-b border-slate-800 flex justify-between items-center relative overflow-hidden">
+                    <div className="absolute -right-4 -top-4 opacity-10">
+                        <Calculator className="w-24 h-24 text-blue-400" />
+                    </div>
+                    <div>
+                        <h2 className="text-xl font-black text-white uppercase tracking-wider relative z-10 flex items-center gap-2">
+                            <Calculator className="w-5 h-5 text-emerald-400" />
+                            Rumus Sel Volta
+                        </h2>
+                        <p className="text-xs text-slate-400 font-medium relative z-10 mt-1">Integrasi Matematika Reaksi Redoks</p>
+                    </div>
+                    <button 
+                        onClick={() => setShowFormulaModal(false)}
+                        className="text-slate-400 hover:text-white bg-slate-800/50 hover:bg-slate-700 p-2 rounded-full transition-colors relative z-10"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                    </button>
+                </div>
+                
+                <div className="p-6 space-y-6 overflow-y-auto max-h-[70vh] bg-slate-50">
+                    <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 relative overflow-hidden group">
+                        <div className="absolute left-0 top-0 bottom-0 w-1 bg-emerald-500 rounded-l-2xl transition-all group-hover:w-2"></div>
+                        <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest mb-3 flex items-center gap-2">
+                            <Zap className="w-4 h-4 text-emerald-500" /> Potensial Sel Standar (E°)
+                        </h3>
+                        <div className="bg-slate-800 rounded-xl p-4 flex items-center justify-center mb-3">
+                            <code className="text-xl font-mono text-emerald-400 font-bold tracking-wider">E°<sub className="text-sm">sel</sub> = E°<sub className="text-sm">reduksi</sub> - E°<sub className="text-sm">oksidasi</sub></code>
+                        </div>
+                        <ul className="text-xs font-medium text-slate-600 space-y-2 font-mono">
+                            <li className="flex justify-between"><span className="text-slate-400">E°<sub className="text-[10px]">sel</sub></span> <span className="text-slate-800">Standar Baterai ({standardCellPotential.toFixed(2)} V)</span></li>
+                            <li className="flex justify-between"><span className="text-slate-400">E°<sub className="text-[10px]">red</sub></span> <span className="text-slate-800">Katoda / Reduksi ({selectedSolution.E0.toFixed(2)} V)</span></li>
+                            <li className="flex justify-between"><span className="text-slate-400">E°<sub className="text-[10px]">oks</sub></span> <span className="text-slate-800">Anoda / Oksidasi ({selectedMetal.E0.toFixed(2)} V)</span></li>
+                        </ul>
+                    </div>
+
+                    <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 relative overflow-hidden group">
+                        <div className="absolute left-0 top-0 bottom-0 w-1 bg-amber-500 rounded-l-2xl transition-all group-hover:w-2"></div>
+                        <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest mb-3 flex items-center gap-2">
+                            <Activity className="w-4 h-4 text-amber-500" /> Persamaan Nernst (Non-Standar)
+                        </h3>
+                        <div className="bg-slate-800 rounded-xl p-4 flex flex-col items-center justify-center mb-3">
+                            <code className="text-[16px] font-mono text-amber-400 font-bold tracking-wider">E<sub className="text-[10px]">sel</sub> = E°<sub className="text-[10px]">sel</sub> - <span className="border-b-2 border-amber-400">0.0592</span> log Q</code>
+                            <code className="text-[16px] font-mono text-amber-400 font-bold tracking-wider mt-1 ml-16">n     </code>
+                        </div>
+                        <ul className="text-xs font-medium text-slate-600 space-y-2 font-mono">
+                            <li className="flex justify-between"><span className="text-slate-400">E<sub className="text-[10px]">sel</sub></span> <span className="text-slate-800">Potensial Aktual ({realCellPotential.toFixed(2)} V)</span></li>
+                            <li className="flex justify-between"><span className="text-slate-400">n</span> <span className="text-slate-800">Mol elektron transfer ({nTransfer})</span></li>
+                            <li className="flex justify-between"><span className="text-slate-400">Q</span> <span className="text-slate-800">Kuosien Reaksi ([Ion]/1)</span></li>
+                        </ul>
+                    </div>
+
+                    <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 relative overflow-hidden group">
+                        <div className="absolute left-0 top-0 bottom-0 w-1 bg-indigo-500 rounded-l-2xl transition-all group-hover:w-2"></div>
+                        <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest mb-3 flex items-center gap-2">
+                            <FlaskConical className="w-4 h-4 text-indigo-500" /> Stoikiometri & Elektrolisis
+                        </h3>
+                        <div className="bg-slate-800 rounded-xl p-4 flex flex-col items-center justify-center mb-3">
+                            <code className="text-[14px] font-mono text-indigo-400 font-bold tracking-widest text-center">{koefLogam} {selectedMetal.id} + {koefIon} {selectedSolution.ion} &rarr; <br/>{koefLogam} {selectedMetal.id}{formatIon(selectedMetal.n)} + {koefIon} {redTarget}</code>
+                        </div>
+                        <ul className="text-xs font-medium text-slate-600 space-y-2 font-mono">
+                            <li className="flex justify-between"><span className="text-slate-400">Mol {selectedMetal.id}</span> <span className="text-slate-800">Massa / Ar = {molLogam.toFixed(3)} mol</span></li>
+                            <li className="flex justify-between"><span className="text-slate-400">Mol {selectedSolution.ion}</span> <span className="text-slate-800">M V = {molIon.toFixed(3)} mol</span></li>
+                            <li className="flex justify-between"><span className="text-slate-400">Massa Endapan</span> <span className="text-slate-800">{massaEndapan.toFixed(2)} g</span></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+        )}
     </div>
   );
 }

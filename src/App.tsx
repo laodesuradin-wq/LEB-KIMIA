@@ -1,7 +1,9 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { Send, Play, RotateCcw, Thermometer, FlaskConical, Zap, Activity, MessageSquare, Menu, ClipboardList, ShieldAlert, ShieldCheck, Beaker, TrendingUp, Timer, ChevronDown, Table, CheckCircle2, Rotate3D, MousePointer2, Square, Compass, Shirt, Glasses, Hand, Wind, Footprints, Flame, Skull, Droplets, Bomb, AlertTriangle, Leaf } from 'lucide-react';
+import { Send, Play, RotateCcw, Thermometer, FlaskConical, Zap, Activity, MessageSquare, Menu, ClipboardList, ShieldAlert, ShieldCheck, Beaker, TrendingUp, Timer, ChevronDown, Table, CheckCircle2, Rotate3D, MousePointer2, Square, Compass, Shirt, Glasses, Hand, Wind, Footprints, Flame, Skull, Droplets, Bomb, AlertTriangle, Leaf, Calculator } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { Particles3D } from './components/Particles3D';
+import { LabGate } from './components/LabGate';
+import { SpillOverlay } from './components/SpillOverlay';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ReferenceDot } from 'recharts';
 import { driver } from 'driver.js';
 import 'driver.js/dist/driver.css';
@@ -119,6 +121,7 @@ interface Particle {
   radius: number;
   color: string;
   flashTimer?: number;
+  isProduct?: boolean;
 }
 
 const BAHAN_KIMIA = [
@@ -129,9 +132,16 @@ const BAHAN_KIMIA = [
         symbols: ['corrosive', 'irritant'],
         colorA: '#38bdf8', 
         colorB: '#0ea5e9', 
+        productName: 'H₂O (Cairan) + O₂ (Gas)',
+        productColor: '#cbd5e1',
         Ea: 50000, 
         catEa: 30000,
         kalkulasi: (konsentrasi: number) => `${((konsentrasi * 100) / 9.8).toFixed(2)} mL larutan H₂O₂ pekat (30% / 9.8 M) untuk 100 mL larutan`,
+        hitungProduk: (v: number, t: number) => {
+            const mol = v * t * 0.1;
+            const volO2 = (mol / 2) * 24000;
+            return `${volO2.toFixed(2)} mL Gas O₂`;
+        },
         alat: [
 
             { nama: 'Labu Erlenmeyer 250 mL', desc: 'Wadah reaktor utama untuk mencampur larutan.' },
@@ -153,9 +163,16 @@ const BAHAN_KIMIA = [
         symbols: ['corrosive', 'toxic', 'irritant'],
         colorA: '#facc15', 
         colorB: '#94a3b8', 
+        productName: 'S (Endapan Kuning) + NaCl + SO₂ (Gas) + H₂O',
+        productColor: '#eab308',
         Ea: 55000, 
         catEa: 35000,
         kalkulasi: (konsentrasi: number) => `${(konsentrasi * 0.1 * 158.11).toFixed(2)} gram padatan Na₂S₂O₃ dilarutkan hingga 100 mL`,
+        hitungProduk: (v: number, t: number) => {
+            const mol = v * t * 0.1;
+            const massS = mol * 32.06;
+            return `${massS.toFixed(3)} gram Endapan Belerang (S)`;
+        },
         alat: [
             { nama: 'Gelas Kimia 100 mL', desc: 'Wadah observasi untuk reaksi pengendapan.' },
             { nama: 'Gelas Ukur 50 mL', desc: 'Mengukur Na₂S₂O₃ dan HCl secara presisi.' },
@@ -176,9 +193,16 @@ const BAHAN_KIMIA = [
         symbols: ['flammable', 'corrosive', 'toxic'],
         colorA: '#cbd5e1', 
         colorB: '#94a3b8', 
+        productName: 'MgCl₂ (Larutan) + H₂ (Gas)',
+        productColor: '#f8fafc',
         Ea: 45000, 
         catEa: 25000,
         kalkulasi: (konsentrasi: number) => `${((konsentrasi * 100) / 12).toFixed(2)} mL pekat HCl (12 M) dilarutkan hingga 100 mL`,
+        hitungProduk: (v: number, t: number) => {
+            const molH2 = v * t * 0.1;
+            const volH2 = molH2 * 24000;
+            return `${volH2.toFixed(2)} mL Gas H₂`;
+        },
         alat: [
             { nama: 'Labu Erlenmeyer', desc: 'Wadah untuk mereaksikan padatan dan asam.' },
             { nama: 'Gelas Ukur 25 mL', desc: 'Untuk mengukur volume HCl.' },
@@ -199,9 +223,16 @@ const BAHAN_KIMIA = [
         symbols: ['corrosive', 'toxic'], 
         colorA: '#e2e8f0', 
         colorB: '#94a3b8', 
+        productName: 'CaCl₂ (Larutan) + H₂O + CO₂ (Gas)',
+        productColor: '#f8fafc',
         Ea: 48000, 
         catEa: 28000,
         kalkulasi: (konsentrasi: number) => `${((konsentrasi * 100) / 12).toFixed(2)} mL pekat HCl (12 M) dilarutkan hingga 100 mL`,
+        hitungProduk: (v: number, t: number) => {
+            const molCO2 = v * t * 0.1;
+            const volCO2 = molCO2 * 24000;
+            return `${volCO2.toFixed(2)} mL Gas CO₂`;
+        },
         alat: [
             { nama: 'Labu Erlenmeyer 250 mL', desc: 'Wadah reaktor utama untuk melarutkan serbuk/keping.' },
             { nama: 'Gelas Ukur 50 mL', desc: 'Mengambil volume HCl.' },
@@ -222,9 +253,17 @@ const BAHAN_KIMIA = [
         symbols: ['toxic', 'environment', 'corrosive'],
         colorA: '#d946ef', 
         colorB: '#e879f9', 
+        productName: 'Mn²⁺ (Larutan Bening) + CO₂ (Gas) + H₂O',
+        productColor: '#fbcfe8',
         Ea: 60000, 
         catEa: 38000,
         kalkulasi: (konsentrasi: number) => `${(konsentrasi * 0.1 * 158.034).toFixed(2)} gram padatan KMnO₄ dilarutkan hingga 100 mL`,
+        hitungProduk: (v: number, t: number) => {
+            const molMn2 = v * t * 0.1;
+            const molCO2 = molMn2 * 5; 
+            const volCO2 = molCO2 * 24000;
+            return `${volCO2.toFixed(2)} mL Gas CO₂`;
+        },
         alat: [
             { nama: 'Labu Erlenmeyer 250 mL', desc: 'Tempat pelarutan dan proses goyangan.' },
             { nama: 'Buret & Statif', desc: 'Agar penambahan volume titran dapat terukur.' },
@@ -285,8 +324,13 @@ export default function App() {
   const [collisionsPerSecond, setCollisionsPerSecond] = useState<number>(0);
   const [durasi, setDurasi] = useState<number>(0);
   const [ordoB, setOrdoB] = useState<number>(0);
-  const [bahanKimia, setBahanKimia] = useState<string>('H2O2');
+  const [bahanKimia, setBahanKimia] = useState<string>('');
   const [customEa, setCustomEa] = useState<number | null>(null);
+  const [spillEvent, setSpillEvent] = useState<boolean>(false);
+  const spillEventRef = useRef<boolean>(false);
+  const sudahPernahTumpahRef = useRef<boolean>(false);
+  const [hasProduct, setHasProduct] = useState<boolean>(false);
+  const hasProductRef = useRef<boolean>(false);
   
   const [apdChecklist, setApdChecklist] = useState({
     jasLab: false,
@@ -298,7 +342,17 @@ export default function App() {
   const isApdComplete = Object.values(apdChecklist).every(Boolean);
 
   const [is3D, setIs3D] = useState<boolean>(false);
+  const is3DRef = useRef<boolean>(false);
   const [autoRotate3D, setAutoRotate3D] = useState<boolean>(true);
+
+  useEffect(() => {
+      is3DRef.current = is3D;
+  }, [is3D]);
+
+  // Gate States
+  const [passedGeneralSafety, setPassedGeneralSafety] = useState(false);
+  const [unlockedThemes, setUnlockedThemes] = useState({ laju_reaksi: false, redoks: false });
+
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationRef = useRef<number | null>(null);
   const durationRef = useRef<number>(0);
@@ -404,8 +458,8 @@ export default function App() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showSOP, setShowSOP] = useState(true);
   const [showDataModal, setShowDataModal] = useState(false);
-  const [showSummaryModal, setShowSummaryModal] = useState(false);
-  const [activeMenu, setActiveMenu] = useState<'laju_reaksi' | 'redoks'>('laju_reaksi');
+  const [showFormulaModal, setShowFormulaModal] = useState(false);
+  const [activeMenu, setActiveMenu] = useState<'home' | 'laju_reaksi' | 'redoks'>('home');
   
   const startTour = () => {
     localStorage.setItem('hasSeenTour', 'true');
@@ -523,6 +577,7 @@ export default function App() {
   const konsentrasiRef = useRef<number>(konsentrasi);
   const katalisRef = useRef<boolean>(katalis);
   const bahanRef = useRef<string>(bahanKimia);
+  const ordoBRef = useRef<number>(ordoB);
 
   useEffect(() => {
       suhuRef.current = suhu;
@@ -540,10 +595,39 @@ export default function App() {
       bahanRef.current = bahanKimia;
   }, [bahanKimia]);
 
+  useEffect(() => {
+      ordoBRef.current = ordoB;
+  }, [ordoB]);
+
   // Focus effect to keep chat at bottom
   useEffect(() => {
     chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatHistory, isTyping]);
+
+  // Initialize particles when material changes even before reaction starts
+  useEffect(() => {
+     if (!isReacting && bahanKimia) {
+         initParticles(false);
+         
+         // Trigger 2D re-render if needed
+         const canvas = canvasRef.current;
+         if (canvas) {
+             const ctx = canvas.getContext('2d');
+             if (ctx) {
+                 ctx.fillStyle = '#0f172a'; // Background color matches tailwind bg-[#0f172a]
+                 ctx.fillRect(0, 0, canvas.width, canvas.height);
+                 
+                 particlesRef.current.forEach(p => {
+                     ctx.beginPath();
+                     ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                     ctx.fillStyle = p.color;
+                     ctx.fill();
+                     ctx.closePath();
+                 });
+             }
+         }
+     }
+  }, [bahanKimia, isReacting, konsentrasi]);
 
   useEffect(() => {
     return () => {
@@ -551,32 +635,36 @@ export default function App() {
     };
   }, []);
 
-  const initParticles = () => {
+  const initParticles = (moving: boolean = true) => {
+    if (!bahanRef.current) {
+        particlesRef.current = [];
+        return;
+    }
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
     const rect = canvas.getBoundingClientRect();
-    canvas.width = rect.width;
-    canvas.height = rect.height;
+    canvas.width = rect.width || 500;
+    canvas.height = rect.height || 300;
 
-    const numParticles = Math.floor(konsentrasiRef.current * 150);
+    const numParticles = Math.floor(konsentrasiRef.current * 25); // Reduced from 50 for better performance
     const particles: Particle[] = [];
     const bahan = BAHAN_KIMIA.find(b => b.id === bahanRef.current) || BAHAN_KIMIA[0];
     const colors = [bahan.colorA, bahan.colorB];
 
     for (let i = 0; i < numParticles; i++) {
-        let speedMultiplier = suhuRef.current / 150; 
+        let speedMultiplier = moving ? suhuRef.current / 150 : 0; 
         
         particles.push({
             x: Math.random() * canvas.width,
-            y: Math.random() * canvas.height,
+            y: canvas.height - (Math.random() * (canvas.height * 0.4)), // Keep them at bottom if static
             z: (Math.random() - 0.5) * canvas.width,
-            vx: (Math.random() - 0.5) * speedMultiplier * 4,
-            vy: (Math.random() - 0.5) * speedMultiplier * 4,
-            vz: (Math.random() - 0.5) * speedMultiplier * 4,
-            radius: 4 + Math.random() * 6,
+            vx: moving ? (Math.random() - 0.5) * speedMultiplier * 4 : 0,
+            vy: moving ? (Math.random() - 0.5) * speedMultiplier * 4 : 0,
+            vz: moving ? (Math.random() - 0.5) * speedMultiplier * 4 : 0,
+            radius: 8 + Math.random() * 10, // Increased size to compensate for fewer particles
             color: colors[Math.floor(Math.random() * colors.length)]
         });
     }
@@ -591,8 +679,11 @@ export default function App() {
       let collisions = 0;
       const particles = particlesRef.current;
 
-      const targetCount = Math.floor(konsentrasiRef.current * 150);
+      const targetCount = Math.floor(konsentrasiRef.current * 25);
       const currentCount = particles.length;
+
+      const reactantCount = particles.filter(p => !p.isProduct).length;
+      const reactantFraction = currentCount > 0 ? reactantCount / currentCount : 0;
 
       // Adjust particle count smoothly
       if (targetCount > currentCount && Math.random() < 0.2) {
@@ -606,7 +697,7 @@ export default function App() {
               vx: (Math.random() - 0.5) * speedMultiplier * 4,
               vy: (Math.random() - 0.5) * speedMultiplier * 4,
               vz: (Math.random() - 0.5) * speedMultiplier * 4,
-              radius: 4 + Math.random() * 6,
+              radius: 8 + Math.random() * 10,
               color: colors[Math.floor(Math.random() * colors.length)]
           });
       } else if (targetCount < currentCount) {
@@ -622,23 +713,47 @@ export default function App() {
           const currentSpeedSq = p1.vx * p1.vx + p1.vy * p1.vy + p1.vz * p1.vz;
           const targetAvgSpeedSq = (targetSpeedMultiplier * 2) ** 2;
           
-          if (currentSpeedSq < targetAvgSpeedSq) {
-              p1.vx *= 1.02;
-              p1.vy *= 1.02;
-              p1.vz *= 1.02;
-          } else if (currentSpeedSq > targetAvgSpeedSq) {
-              p1.vx *= 0.98;
-              p1.vy *= 0.98;
-              p1.vz *= 0.98;
+          if (bahanRef.current === 'Na2S2O3' && p1.isProduct) {
+              p1.vy += 0.2; // Gravitasi
+              p1.vx *= 0.95; // Friksi horizontal
+              p1.vz *= 0.95;
+          } else {
+              if (currentSpeedSq < targetAvgSpeedSq) {
+                  p1.vx *= 1.02;
+                  p1.vy *= 1.02;
+                  p1.vz *= 1.02;
+              } else if (currentSpeedSq > targetAvgSpeedSq) {
+                  p1.vx *= 0.98;
+                  p1.vy *= 0.98;
+                  p1.vz *= 0.98;
+              }
           }
 
           p1.x += p1.vx;
           p1.y += p1.vy;
           p1.z += p1.vz;
 
-          if (p1.x - p1.radius < 0 || p1.x + p1.radius > canvas.width) p1.vx *= -1;
-          if (p1.y - p1.radius < 0 || p1.y + p1.radius > canvas.height) p1.vy *= -1;
-          if (p1.z - p1.radius < -canvas.width/2 || p1.z + p1.radius > canvas.width/2) p1.vz *= -1;
+          if (bahanRef.current === 'Na2S2O3' && p1.isProduct) {
+              if (p1.x - p1.radius < 0) { p1.x = p1.radius; p1.vx *= -0.5; }
+              if (p1.x + p1.radius > canvas.width) { p1.x = canvas.width - p1.radius; p1.vx *= -0.5; }
+              if (p1.y - p1.radius < 0) { p1.y = p1.radius; p1.vy *= -0.5; }
+              if (p1.y + p1.radius > canvas.height) { p1.y = canvas.height - p1.radius; p1.vy *= -0.2; }
+              if (p1.z - p1.radius < -canvas.width/2) { p1.z = p1.radius - canvas.width/2; p1.vz *= -0.5; }
+              if (p1.z + p1.radius > canvas.width/2) { p1.z = canvas.width/2 - p1.radius; p1.vz *= -0.5; }
+          } else {
+              if (p1.x - p1.radius < 0 || p1.x + p1.radius > canvas.width) {
+                  p1.vx *= -1;
+                  p1.x = p1.x - p1.radius < 0 ? p1.radius : canvas.width - p1.radius;
+              }
+              if (p1.y - p1.radius < 0 || p1.y + p1.radius > canvas.height) {
+                  p1.vy *= -1;
+                  p1.y = p1.y - p1.radius < 0 ? p1.radius : canvas.height - p1.radius;
+              }
+              if (p1.z - p1.radius < -canvas.width/2 || p1.z + p1.radius > canvas.width/2) {
+                  p1.vz *= -1;
+                  p1.z = p1.z - p1.radius < -canvas.width/2 ? p1.radius - canvas.width/2 : canvas.width/2 - p1.radius;
+              }
+          }
 
           for (let j = i + 1; j < particles.length; j++) {
               const p2 = particles[j];
@@ -649,7 +764,7 @@ export default function App() {
               const radSum = p1.radius + p2.radius;
               
               if (distSq < radSum * radSum) {
-                  collisions++;
+                  collisions += 5;
                   
                   // Calculate relative collision energy
                   const relativeVx = p1.vx - p2.vx;
@@ -663,38 +778,59 @@ export default function App() {
                   const eaValue = katalisRef.current ? bahan.catEa : bahan.Ea;
                   const eaThreshold = (eaValue / 50000) * 45.0;
                   
-                  if (collisionEnergySq > eaThreshold) {
-                      effectiveCollisionCountRef.current++;
-                      p1.flashTimer = 20; // frames to glow
-                      p2.flashTimer = 20;
-                      
-                      const centerX = (p1.x + p2.x) / 2;
-                      const centerY = (p1.y + p2.y) / 2;
-                      const centerZ = (p1.z + p2.z) / 2;
-                      
-                      popupsRef.current.push({
-                          id: popupIdCounterRef.current++,
-                          x: centerX,
-                          y: centerY,
-                          z: centerZ,
-                          energy: collisionEnergySq,
-                          life: 1.0
-                      });
-                      
-                      // Generate small explosion debris
-                      for (let k = 0; k < 5; k++) {
-                          debrisRef.current.push({
+                  if (collisionEnergySq > eaThreshold && (!p1.isProduct || !p2.isProduct)) {
+                      let reactProb = 1.0;
+                      // Logika realistis berdasarkan ordo reaksi:
+                      // Laju reaksi = k * [A]^m * [B]^n
+                      // Kita jadikan reactantFraction sebagai representasi konsentrasi bahan yang tersisa
+                      // Ordo 0: prob = 1.0 (reaksi tetap konstan selama masih ada reaktan)
+                      // Ordo 1: prob = reactantFraction (berkurang seiring berkurangnya reaktan)
+                      // Ordo 2: prob = reactantFraction^2 (berkurang lebih drastis untuk ordo yang lebih tinggi)
+                      if (ordoBRef.current === 1) reactProb = reactantFraction;
+                      if (ordoBRef.current === 2) reactProb = reactantFraction * reactantFraction;
+
+                      if (Math.random() < reactProb) {
+                          effectiveCollisionCountRef.current += 5;
+                          p1.flashTimer = 20; // frames to glow
+                          p2.flashTimer = 20;
+                          
+                          p1.isProduct = true;
+                          p2.isProduct = true;
+                          if ((bahan as any).productColor) {
+                              p1.color = (bahan as any).productColor;
+                              p2.color = (bahan as any).productColor;
+                          }
+                          
+                          const centerX = (p1.x + p2.x) / 2;
+                          const centerY = (p1.y + p2.y) / 2;
+                          const centerZ = (p1.z + p2.z) / 2;
+                          
+                          popupsRef.current.push({
+                              id: popupIdCounterRef.current++,
                               x: centerX,
                               y: centerY,
                               z: centerZ,
-                              vx: (Math.random() - 0.5) * 6,
-                              vy: (Math.random() - 0.5) * 6,
-                              vz: (Math.random() - 0.5) * 6,
-                              radius: Math.random() * 2 + 1,
-                              color: '#fbbf24', // Amber explosion
-                              life: 25 + Math.random() * 15,
-                              maxLife: 40
+                              energy: collisionEnergySq,
+                              life: 1.0
                           });
+                          
+                          // Generate small explosion debris
+                          for (let k = 0; k < 5; k++) {
+                              debrisRef.current.push({
+                                  x: centerX,
+                                  y: centerY,
+                                  z: centerZ,
+                                  vx: (Math.random() - 0.5) * 6,
+                                  vy: (Math.random() - 0.5) * 6,
+                                  vz: (Math.random() - 0.5) * 6,
+                                  radius: Math.random() * 2 + 1,
+                                  color: '#fbbf24', // Amber explosion
+                                  life: 25 + Math.random() * 15,
+                                  maxLife: 40
+                              });
+                          }
+                      } else {
+                          // Tumbukan tidak efektif karena probabilitas ordo reaksi
                       }
                   }
 
@@ -763,7 +899,13 @@ export default function App() {
         const stretch = Math.max(1, 1 + speed * 0.15); // Semakin cepat, semakin lonjong
         const angle = Math.atan2(p.vy, p.vx);
 
-        if (p.flashTimer && p.flashTimer > 0) {
+        if (p.isProduct && bahanRef.current === 'Na2S2O3') {
+           ctx.ellipse(jx, jy, p.radius, p.radius, 0, 0, Math.PI * 2);
+           ctx.shadowBlur = 5;
+           ctx.shadowColor = 'rgba(0,0,0,0.5)';
+           ctx.fillStyle = p.color;
+           ctx.globalAlpha = 1.0;
+        } else if (p.flashTimer && p.flashTimer > 0) {
            const flashRatio = p.flashTimer / 20;
            // Tambah ukuran (swell) sesaat sebelum meledak
            currentRadius = p.radius * (1 + flashRatio * 1.5);
@@ -859,7 +1001,7 @@ export default function App() {
         cancelAnimationFrame(animationRef.current);
     }
     if (timeStepRef.current > 0) {
-        setShowSummaryModal(true);
+        setShowDataModal(true);
     }
   };
 
@@ -872,6 +1014,12 @@ export default function App() {
         
         timeStepRef.current += 1;
         totalCollisionsRef.current += effectiveCollisionCountRef.current;
+        
+        if (totalCollisionsRef.current > 0 && !hasProductRef.current) {
+            setHasProduct(true);
+            hasProductRef.current = true;
+        }
+
         setRateHistory(prev => {
             const newHistory = [...prev, { 
                 time: timeStepRef.current, 
@@ -887,6 +1035,15 @@ export default function App() {
         collisionCountRef.current = 0;
         effectiveCollisionCountRef.current = 0;
         lastTimeRef.current = time;
+
+        if (!spillEventRef.current && !sudahPernahTumpahRef.current && Math.random() < 0.05) {
+            setSpillEvent(true);
+            spillEventRef.current = true;
+            sudahPernahTumpahRef.current = true;
+            setIsReacting(false);
+            if (animationRef.current) cancelAnimationFrame(animationRef.current);
+            return;
+        }
 
         if (durationRef.current > 0 && timeStepRef.current >= durationRef.current) {
             hentikanSimulasi();
@@ -925,7 +1082,11 @@ export default function App() {
         }
     }
     
-    drawParticles();
+    // Reset values first
+    hasProductRef.current = false;
+    setHasProduct(false);
+
+    if (!is3DRef.current) drawParticles();
     animationRef.current = requestAnimationFrame(animate);
   }
 
@@ -955,6 +1116,8 @@ export default function App() {
 
   const resetSimulasi = () => {
     setIsReacting(false);
+    setSpillEvent(false);
+    spillEventRef.current = false;
     if (animationRef.current) {
         cancelAnimationFrame(animationRef.current);
     }
@@ -966,12 +1129,21 @@ export default function App() {
     timeStepRef.current = 0;
     debrisRef.current = [];
     popupsRef.current = [];
+    setHasProduct(false);
+    hasProductRef.current = false;
     
     const canvas = canvasRef.current;
     if (canvas) {
         const ctx = canvas.getContext('2d');
         if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
     }
+  };
+
+  const lanjutkanReaksi = () => {
+    setSpillEvent(false);
+    spillEventRef.current = false;
+    setBahanKimia('');
+    resetSimulasi();
   };
 
   const unduhLaporan = () => {
@@ -1013,11 +1185,15 @@ export default function App() {
     doc.text(`Rata-rata Galat: ${avgGalat.toFixed(2)}%`, 15, 96);
     doc.text(`Efisiensi Reaksi: ${Math.max(0, 100 - avgGalat).toFixed(2)}%`, 15, 103);
 
+    const calculatedProduct = (bahan as any).hitungProduk ? (bahan as any).hitungProduk(lajuReaksi, timeStepRef.current) : '-';
+    doc.text(`Jumlah Produk    : ${calculatedProduct}`, 15, 110);
+    doc.text(`Wujud Zat Akhir  : ${(bahan as any).productName}`, 15, 117);
+
     doc.setFont("helvetica", "bold");
-    doc.text("PENJELASAN PRAKTIKUM:", 15, 115);
+    doc.text("PENJELASAN PRAKTIKUM:", 15, 129);
     doc.setFont("helvetica", "normal");
     
-    let yPos = 122;
+    let yPos = 136;
     const splitExplanation = doc.splitTextToSize("Praktikum ini mensimulasikan teori tumbukan (collision theory) dalam kinetika kimia. Laju reaksi (M/s) sebanding dengan frekuensi tumbukan efektif antar partikel reaktan. Sebuah tumbukan dikatakan 'efektif' apabila partikel bertumbukan dengan energi kinetik yang lebih besar atau sama dengan Energi Aktivasi (Ea). Kenaikan suhu akan meningkatkan energi kinetik rata-rata partikel, sehingga lebih banyak tumbukan yang mampu melampaui Ea.", 180);
     doc.text(splitExplanation, 15, yPos);
     
@@ -1093,22 +1269,32 @@ export default function App() {
   }
 
   return (
-    <div className="w-full min-h-screen bg-slate-50 p-4 lg:p-6 font-sans text-slate-900 flex flex-col gap-4 overflow-y-auto select-none relative sm:bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] sm:from-slate-50 sm:via-slate-100 sm:to-indigo-50/20">
+    <>
+    {activeMenu !== 'home' && !unlockedThemes[activeMenu] && (
+        <LabGate 
+            theme={activeMenu}
+            passedGeneralSafety={passedGeneralSafety}
+            setPassedGeneralSafety={setPassedGeneralSafety}
+            onUnlock={() => setUnlockedThemes(prev => ({ ...prev, [activeMenu]: true }))}
+        />
+    )}
+    <div className="w-full min-h-screen bg-neutral-50 p-4 lg:p-6 font-sans text-slate-900 flex flex-col gap-6 overflow-y-auto select-none relative pb-12">
         {/* Background ambient shapes */}
-        <div className="fixed top-0 right-0 w-[500px] h-[500px] bg-indigo-500/5 rounded-full blur-3xl pointer-events-none -z-10 translate-x-1/2 -translate-y-1/2 opacity-50"></div>
+        <div className="fixed top-0 left-0 w-full h-[300px] bg-gradient-to-b from-indigo-50/50 to-transparent pointer-events-none -z-10"></div>
+        <div className="fixed top-0 right-0 w-[500px] h-[500px] bg-indigo-500/5 rounded-full blur-3xl pointer-events-none -z-10 translate-x-1/2 -translate-y-1/2"></div>
         <div className="fixed bottom-0 left-0 w-[400px] h-[400px] bg-emerald-500/5 rounded-full blur-3xl pointer-events-none -z-10 -translate-x-1/2 translate-y-1/2 opacity-50"></div>
         
         {/* Header Section */}
-        <header className="shrink-0 flex justify-between items-center bg-white/70 backdrop-blur-xl border border-slate-200/60 p-4 px-6 rounded-3xl shadow-lg shadow-slate-200/40 relative z-10 transition-all duration-300">
-            <div id="header-title" className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-inner">
+        <header className="shrink-0 flex justify-between items-center bg-white/90 backdrop-blur-md border border-slate-100 p-4 px-6 rounded-[2rem] shadow-sm relative z-10 transition-all duration-300 hover:shadow-md">
+            <button id="header-title" onClick={() => setActiveMenu('home')} className="flex items-center gap-3.5 text-left hover:scale-[1.02] transition-transform">
+                <div className="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center shadow-md">
                     <FlaskConical className="w-6 h-6 text-white" strokeWidth={2.5} />
                 </div>
                 <div>
-                    <h1 className="text-xl font-bold tracking-tight text-slate-800 leading-tight">Lab Kimia <span className="text-indigo-600">v2.4</span></h1>
-                    <p className="text-xs text-slate-500 font-medium">Virtual Reaction Simulator</p>
+                    <h1 className="text-xl font-extrabold tracking-tight text-slate-800 leading-tight">Chemlab <span className="text-indigo-600 font-bold">Pro</span></h1>
+                    <p className="text-xs text-slate-500 font-medium tracking-wide">VIRTUAL REACTION ENVIRONMENT</p>
                 </div>
-            </div>
+            </button>
             
             <div className="flex items-center gap-4">
                 <div id="menu-tabs" className="hidden lg:flex p-1 bg-slate-100 rounded-xl gap-1">
@@ -1161,10 +1347,44 @@ export default function App() {
             </div>
         )}
 
-        {activeMenu === 'laju_reaksi' ? (
+        {activeMenu === 'home' ? (
+            <main className="flex-1 flex items-center justify-center relative z-10 animate-in fade-in zoom-in-95 duration-500">
+                <div className="bg-white/90 backdrop-blur-md border border-slate-100 p-8 md:p-12 rounded-[2.5rem] shadow-sm text-center max-w-2xl mx-auto flex flex-col items-center gap-6">
+                    <div className="w-24 h-24 bg-gradient-to-tr from-indigo-600 to-indigo-400 rounded-[1.5rem] flex items-center justify-center shadow-lg shadow-indigo-200 mb-2">
+                        <FlaskConical className="w-10 h-10 text-white" strokeWidth={2.5} />
+                    </div>
+                    <div>
+                        <h2 className="text-4xl font-extrabold text-slate-800 mb-4 tracking-tight">Virtual Chemistry Lab</h2>
+                        <p className="text-slate-500 font-medium leading-relaxed mb-8">
+                            Select a practicum module below to begin your simulation experience. You will go through preparation rounds and theory confirmation before accessing laboratory equipment.
+                        </p>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
+                        <button 
+                            onClick={() => setActiveMenu('laju_reaksi')}
+                            className="bg-neutral-50 border border-slate-100 p-6 rounded-[2rem] flex flex-col items-center gap-4 transition-all hover:shadow-md hover:-translate-y-1 group"
+                        >
+                            <div className="w-14 h-14 bg-white text-indigo-600 rounded-2xl shadow-sm flex items-center justify-center transition-all group-hover:scale-110 group-hover:bg-indigo-600 group-hover:text-white group-hover:shadow-indigo-200">
+                                <Activity className="w-6 h-6" strokeWidth={2.5} />
+                            </div>
+                            <span className="font-extrabold text-slate-800 tracking-tight">Kinetika Reaksi</span>
+                        </button>
+                        <button 
+                            onClick={() => setActiveMenu('redoks')}
+                            className="bg-neutral-50 border border-slate-100 p-6 rounded-[2rem] flex flex-col items-center gap-4 transition-all hover:shadow-md hover:-translate-y-1 group"
+                        >
+                            <div className="w-14 h-14 bg-white text-rose-600 rounded-2xl shadow-sm flex items-center justify-center transition-all group-hover:scale-110 group-hover:bg-rose-600 group-hover:text-white group-hover:shadow-rose-200">
+                                <Zap className="w-6 h-6" strokeWidth={2.5} />
+                            </div>
+                            <span className="font-extrabold text-slate-800 tracking-tight">Reaksi Redoks</span>
+                        </button>
+                    </div>
+                </div>
+            </main>
+        ) : activeMenu === 'laju_reaksi' ? (
         <main className="flex-1 grid grid-cols-1 lg:grid-cols-12 lg:grid-rows-6 gap-4 lg:min-h-[700px] relative z-10">
             {/* Left: Control Panel */}
-            <section id="tour-control-panel" className="lg:col-span-3 lg:row-span-6 bg-white/70 backdrop-blur-xl border border-slate-200/60 p-6 rounded-3xl shadow-xl shadow-slate-200/40 flex flex-col gap-6 overflow-y-auto transition-all duration-300 hover:shadow-indigo-100/40">
+            <section id="tour-control-panel" className="lg:col-span-3 lg:row-span-6 bg-white/90 backdrop-blur-md border border-slate-100 p-6 rounded-[2rem] shadow-sm flex flex-col gap-6 overflow-y-auto transition-all duration-300 hover:shadow-md">
                 <div className="flex items-center justify-between mb-2 pb-4 border-b border-slate-100/50">
                     <div className="flex items-center gap-2">
                         <div className="w-2 h-2 rounded-full bg-slate-400"></div>
@@ -1468,9 +1688,9 @@ export default function App() {
                     </div>
                     <div className="flex gap-2">
                         <button 
-                            disabled={!isApdComplete}
+                            disabled={!isApdComplete || !bahanKimia}
                             onClick={jalankanReaksi}
-                            className={`${isApdComplete ? 'bg-indigo-600 hover:bg-indigo-700 text-white hover:shadow-lg hover:-translate-y-0.5' : 'bg-slate-200 text-slate-400 cursor-not-allowed'} flex flex-1 items-center justify-center gap-2 font-bold py-3.5 rounded-xl transition-all shadow-md active:translate-y-0 active:scale-[0.98] uppercase tracking-wide text-sm`}
+                            className={`${(isApdComplete && bahanKimia) ? 'bg-indigo-600 hover:bg-indigo-700 text-white hover:shadow-lg hover:-translate-y-0.5' : 'bg-slate-200 text-slate-400 cursor-not-allowed'} flex flex-1 items-center justify-center gap-2 font-bold py-3.5 rounded-xl transition-all shadow-md active:translate-y-0 active:scale-[0.98] uppercase tracking-wide text-sm`}
                         >
                             <Play className="w-5 h-5 fill-current" />
                             {isReacting ? 'Ulang' : 'Mulai Reaksi'}
@@ -1485,22 +1705,41 @@ export default function App() {
                             </button>
                         )}
                     </div>
-                    <button 
-                        onClick={resetSimulasi}
-                        className="w-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center gap-2 font-bold py-3.5 rounded-xl transition-all active:scale-[0.98] uppercase tracking-wide text-sm"
-                    >
-                        <RotateCcw className="w-4 h-4" />
-                        Reset Simulasi
-                    </button>
+                    <div className="flex gap-2">
+                        <button 
+                            onClick={resetSimulasi}
+                            className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center gap-2 font-bold py-3.5 rounded-xl transition-all active:scale-[0.98] uppercase tracking-wide text-sm"
+                        >
+                            <RotateCcw className="w-4 h-4" />
+                            Reset Simulasi
+                        </button>
+                        {timeStepRef.current > 0 && !isReacting && (
+                        <button 
+                            onClick={() => setShowDataModal(true)}
+                            className="flex-1 bg-amber-100 hover:bg-amber-200 text-amber-700 flex items-center justify-center gap-2 font-bold py-3.5 rounded-xl transition-all active:scale-[0.98] uppercase tracking-wide text-sm"
+                        >
+                            <Table className="w-4 h-4" />
+                            Hasil Praktikum
+                        </button>
+                        )}
+                    </div>
                 </div>
             </section>
 
             {/* Center: Simulation View */}
             <section id="tour-simulation-view" className="lg:col-span-6 lg:row-span-4 bg-[#0f172a] border border-slate-800/80 rounded-3xl shadow-[inset_0_2px_20px_rgba(0,0,0,0.5),0_10px_30px_rgba(0,0,0,0.15)] flex flex-col min-h-[300px] relative overflow-hidden group hover:ring-1 hover:ring-indigo-500/30 transition-all duration-500">
                 <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-transparent via-indigo-500/20 to-transparent"></div>
+                {spillEvent && <SpillOverlay onCleaned={lanjutkanReaksi} />}
                 
                 {/* Waktu Overlay & 3D button */}
                 <div className="absolute top-4 right-4 z-20 flex gap-2">
+                    <button 
+                        onClick={() => setShowFormulaModal(true)}
+                        className={`border rounded-lg px-3 py-1.5 flex items-center gap-2 text-xs font-mono font-bold shadow-lg transition-colors bg-slate-800/80 border-slate-700/50 text-slate-300 backdrop-blur-md hover:bg-slate-700/80`}
+                    >
+                        <Calculator className="w-3.5 h-3.5 text-blue-400" />
+                        Rumus
+                    </button>
                     <button 
                         onClick={() => setIs3D(!is3D)}
                         className={`border rounded-lg px-3 py-1.5 flex items-center gap-2 text-xs font-mono font-bold shadow-lg transition-colors ${is3D ? 'bg-indigo-600 border-indigo-500 text-white' : 'bg-slate-800/80 border-slate-700/50 text-slate-300 backdrop-blur-md hover:bg-slate-700/80'}`}
@@ -1554,6 +1793,15 @@ export default function App() {
 
                         className={`w-full h-full object-cover z-0 rounded-2xl transition-opacity ${is3D ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
                     />
+
+                    {(!isReacting && rateHistory.length > 0 && hasProduct && !is3D) && (
+                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-20 flex flex-col items-center justify-center animate-in zoom-in slide-in-from-bottom-5 duration-700">
+                            <span className="bg-slate-900/80 backdrop-blur-md border border-slate-700/50 text-white font-bold px-5 py-3 rounded-2xl shadow-[0_0_30px_rgba(34,211,238,0.3)] flex flex-col items-center">
+                                <span className="text-[10px] text-slate-400 uppercase tracking-widest mb-1 shadow-sm">Produk Terbentuk</span>
+                                <span className="text-cyan-400 text-xl font-black tracking-wider">{(activeBahanData as any).productName}</span>
+                            </span>
+                        </div>
+                    )}
                     
                     {is3D && (
                         <div className="absolute inset-0 z-0">
@@ -1564,6 +1812,9 @@ export default function App() {
                                 width={canvasRef.current?.width || 500} 
                                 height={canvasRef.current?.height || 300} 
                                 autoRotate={autoRotate3D}
+                                productName={(activeBahanData as any).productName}
+                                showProduct={hasProduct && !isReacting && rateHistory.length > 0}
+                                productColor={(activeBahanData as any).productColor}
                             />
                             <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-3 bg-slate-800/80 backdrop-blur-md px-4 py-2 rounded-full border border-slate-700 shadow-xl z-30 animate-in slide-in-from-bottom-4">
                                 <div className="flex items-center gap-2 text-xs font-mono text-slate-300 border-r border-slate-600 pr-3">
@@ -1636,7 +1887,7 @@ export default function App() {
             </section>
 
             {/* Bottom Center Left: Energy Graph */}
-            <section id="tour-chart-energy" className="lg:col-span-2 lg:row-span-2 bg-white/70 backdrop-blur-xl border border-slate-200/60 p-5 rounded-3xl shadow-lg shadow-slate-200/40 flex flex-col min-h-[150px] relative transition-all duration-300 hover:shadow-xl hover:shadow-indigo-100/40 hover:-translate-y-0.5">
+            <section id="tour-chart-energy" className="lg:col-span-2 lg:row-span-2 bg-white/90 backdrop-blur-md border border-slate-100 p-5 rounded-[2rem] shadow-sm flex flex-col min-h-[150px] relative transition-all duration-300 hover:shadow-md">
                 <div className="flex justify-between items-start mb-3">
                     <h3 className="text-xs font-bold uppercase tracking-widest text-slate-500 flex items-center gap-2">
                         <Activity className="w-4 h-4" /> Grafik Energi
@@ -1730,7 +1981,7 @@ export default function App() {
             </section>
 
             {/* Bottom Center Right: Rate Time Chart */}
-            <section id="tour-chart-rate" className="lg:col-span-2 lg:row-span-2 bg-white/70 backdrop-blur-xl border border-slate-200/60 p-5 rounded-3xl shadow-lg shadow-slate-200/40 flex flex-col min-h-[150px] relative transition-all duration-300 hover:shadow-xl hover:shadow-indigo-100/40 hover:-translate-y-0.5">
+            <section id="tour-chart-rate" className="lg:col-span-2 lg:row-span-2 bg-white/90 backdrop-blur-md border border-slate-100 p-5 rounded-[2rem] shadow-sm flex flex-col min-h-[150px] relative transition-all duration-300 hover:shadow-md">
                 <div className="flex justify-between items-start mb-2">
                     <h3 className="text-xs font-bold uppercase tracking-widest text-slate-500 flex items-center gap-2">
                         <TrendingUp className="w-4 h-4 text-amber-500" /> Laju Reaksi (v)
@@ -1817,7 +2068,7 @@ export default function App() {
             </section>
 
             {/* Bottom Center Right 2: Rate vs Temp Chart */}
-            <section id="tour-chart-temp" className="lg:col-span-2 lg:row-span-2 bg-white/70 backdrop-blur-xl border border-slate-200/60 p-5 rounded-3xl shadow-lg shadow-slate-200/40 flex flex-col min-h-[150px] relative transition-all duration-300 hover:shadow-xl hover:shadow-indigo-100/40 hover:-translate-y-0.5">
+            <section id="tour-chart-temp" className="lg:col-span-2 lg:row-span-2 bg-white/90 backdrop-blur-md border border-slate-100 p-5 rounded-[2rem] shadow-sm flex flex-col min-h-[150px] relative transition-all duration-300 hover:shadow-md">
                 <div className="flex justify-between items-start mb-2">
                     <h3 className="text-xs font-bold uppercase tracking-widest text-slate-500 flex items-center gap-2">
                         <Thermometer className="w-4 h-4 text-rose-500" /> Korelasi Suhu & Laju
@@ -1877,7 +2128,7 @@ export default function App() {
             </section>
 
             {/* Right: ChemBot Assistant */}
-            <section id="tour-chembot" className="lg:col-span-3 lg:row-span-6 bg-white/70 backdrop-blur-xl border border-slate-200/60 rounded-3xl shadow-xl shadow-slate-200/40 flex flex-col min-h-[400px] overflow-hidden transition-all duration-300 hover:shadow-2xl hover:shadow-indigo-100/50">
+            <section id="tour-chembot" className="lg:col-span-3 lg:row-span-6 bg-white/90 backdrop-blur-md border border-slate-100 rounded-[2rem] shadow-sm flex flex-col min-h-[400px] overflow-hidden transition-all duration-300 hover:shadow-md">
                 <div className="flex items-center gap-3 p-5 shrink-0 border-b border-slate-100/50 bg-gradient-to-r from-indigo-50/30 to-white/30 backdrop-blur-sm">
                     <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center border border-indigo-200">
                         <MessageSquare className="w-4 h-4" />
@@ -1956,7 +2207,7 @@ export default function App() {
             </section>
 
             {/* View Alat & Bahan (Full Width / Row 7) */}
-            <section className="lg:col-span-12 bg-white/70 backdrop-blur-xl border border-slate-200/60 p-6 rounded-3xl shadow-xl shadow-slate-200/40 relative flex flex-col mt-4 lg:mt-0">
+            <section className="lg:col-span-12 bg-white/90 backdrop-blur-md border border-slate-100 p-6 rounded-[2rem] shadow-sm relative flex flex-col mt-4 lg:mt-0">
                 <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-6 flex items-center gap-2">
                     <Beaker className="w-4 h-4 text-indigo-500" /> Alat & Bahan Praktikum
                 </h3>
@@ -1994,79 +2245,61 @@ export default function App() {
             <RedoxSimulation />
         )}
 
-        {showSummaryModal && (
+        {showFormulaModal && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-300">
-                <div className="bg-slate-900 px-6 py-6 flex flex-col items-center justify-center text-center shrink-0 relative overflow-hidden">
+            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col animate-in zoom-in-95 duration-300">
+                <div className="bg-slate-900 px-6 py-6 border-b border-slate-800 flex justify-between items-center relative overflow-hidden">
+                    <div className="absolute -right-4 -top-4 opacity-10">
+                        <Calculator className="w-24 h-24 text-blue-400" />
+                    </div>
+                    <div>
+                        <h2 className="text-xl font-black text-white uppercase tracking-wider relative z-10 flex items-center gap-2">
+                            <Calculator className="w-5 h-5 text-blue-400" />
+                            Rumus Laju Reaksi
+                        </h2>
+                        <p className="text-xs text-slate-400 font-medium relative z-10 mt-1">Integrasi Matematika Kinetika Kimia</p>
+                    </div>
                     <button 
-                        onClick={() => setShowSummaryModal(false)}
-                        className="absolute top-4 right-4 z-20 text-slate-400 hover:text-white bg-slate-800/50 hover:bg-slate-800 p-2 rounded-full transition-colors"
-                        title="Tutup"
+                        onClick={() => setShowFormulaModal(false)}
+                        className="text-slate-400 hover:text-white bg-slate-800/50 hover:bg-slate-700 p-2 rounded-full transition-colors relative z-10"
                     >
                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
                     </button>
-                    <div className="absolute top-0 right-0 p-4 opacity-10">
-                        <CheckCircle2 className="w-32 h-32 text-indigo-100" />
-                    </div>
-                    <div className="w-16 h-16 bg-emerald-500/20 rounded-full flex items-center justify-center border border-emerald-500/50 mb-4 z-10 shadow-[0_0_15px_rgba(16,185,129,0.5)]">
-                        <CheckCircle2 className="w-8 h-8 text-emerald-400" />
-                    </div>
-                    <h2 className="text-2xl font-black text-white uppercase tracking-widest z-10">Simulasi Selesai</h2>
-                    <p className="text-sm text-slate-300 font-medium z-10 mt-1">Ringkasan Hasil Praktikum</p>
                 </div>
                 
-                <div className="p-6 bg-slate-50 flex flex-col gap-4 overflow-y-auto">
-                    <div className="bg-white p-4 rounded-xl border border-slate-200 flex justify-between items-center shadow-sm">
-                        <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-pink-100 rounded-lg flex items-center justify-center">
-                                <Timer className="w-5 h-5 text-pink-600" />
-                            </div>
-                            <span className="text-sm font-bold text-slate-700 uppercase">Durasi Total</span>
+                <div className="p-6 space-y-6 overflow-y-auto max-h-[70vh] bg-slate-50">
+                    <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 relative overflow-hidden group">
+                        <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-500 rounded-l-2xl transition-all group-hover:w-2"></div>
+                        <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest mb-3 flex items-center gap-2">
+                            <Activity className="w-4 h-4 text-blue-500" /> Persamaan Laju Reaksi
+                        </h3>
+                        <div className="bg-slate-800 rounded-xl p-4 flex items-center justify-center mb-3">
+                            <code className="text-xl font-mono text-emerald-400 font-bold tracking-wider">v = k [A]¹[B]ⁿ</code>
                         </div>
-                        <span className="text-xl font-black text-slate-900 font-mono">{timeStepRef.current}s</span>
+                        <ul className="text-xs font-medium text-slate-600 space-y-2 font-mono">
+                            <li className="flex justify-between"><span className="text-slate-400">v</span> <span className="text-slate-800">= Laju Reaksi (M/s)</span></li>
+                            <li className="flex justify-between"><span className="text-slate-400">k</span> <span className="text-slate-800">= Konstanta Laju Reaksi</span></li>
+                            <li className="flex justify-between"><span className="text-slate-400">[A]</span> <span className="text-slate-800">= Konsentrasi Reaktan A (M)</span></li>
+                            <li className="flex justify-between"><span className="text-slate-400">[B]</span> <span className="text-slate-800">= Konsentrasi Reaktan B (M)</span></li>
+                            <li className="flex justify-between"><span className="text-slate-400">m, n</span> <span className="text-slate-800">= Orde Reaksi (Ditentukan: {ordoB})</span></li>
+                        </ul>
                     </div>
 
-                    <div className="bg-white p-4 rounded-xl border border-slate-200 flex justify-between items-center shadow-sm">
-                        <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-cyan-100 rounded-lg flex items-center justify-center">
-                                <Activity className="w-5 h-5 text-cyan-600" />
-                            </div>
-                            <span className="text-sm font-bold text-slate-700 uppercase">Tumbukan Efektif</span>
+                    <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 relative overflow-hidden group">
+                        <div className="absolute left-0 top-0 bottom-0 w-1 bg-amber-500 rounded-l-2xl transition-all group-hover:w-2"></div>
+                        <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest mb-3 flex items-center gap-2">
+                            <Flame className="w-4 h-4 text-amber-500" /> Persamaan Arrhenius
+                        </h3>
+                        <div className="bg-slate-800 rounded-xl p-4 flex items-center justify-center mb-3">
+                            <code className="text-xl font-mono text-amber-400 font-bold tracking-wider">k = A · e<sup className="text-sm">-Ea/RT</sup></code>
                         </div>
-                        <span className="text-xl font-black text-slate-900 font-mono">{totalCollisionsRef.current}</span>
-                    </div>
-
-                    <div className="bg-white p-4 rounded-xl border border-slate-200 flex justify-between items-center shadow-sm">
-                        <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center">
-                                <TrendingUp className="w-5 h-5 text-amber-600" />
-                            </div>
-                            <span className="text-sm font-bold text-slate-700 uppercase">Efisiensi Reaksi</span>
-                        </div>
-                        <span className="text-xl font-black text-slate-900 font-mono pl-3">{Math.max(0, 100 - galatPercentage).toFixed(2)}%</span>
-                    </div>
-
-                    <div className="bg-emerald-50 border border-emerald-100 p-4 rounded-xl mt-1 text-left">
-                        <p className="text-xs text-emerald-800 font-medium leading-relaxed">
-                            <span className="font-bold flex items-center gap-1.5 mb-1"><CheckCircle2 className="w-4 h-4" /> Kesimpulan Eksperimen</span>
-                            Berdasarkan simulasi ini, Anda dapat melihat bahwa laju reaksi sangat bergantung pada frekuensi <strong>tumbukan efektif</strong>. Semakin sering partikel bertumbukan dengan energi yang melampaui hambatan aktivasi, semakin cepat produk terbentuk.
-                        </p>
-                    </div>
-
-                    <div className="flex flex-col gap-2 mt-2">
-                        <button 
-                            onClick={unduhLaporan}
-                            className="w-full py-3.5 bg-white border border-indigo-200 hover:border-indigo-600 hover:bg-indigo-50 text-indigo-700 rounded-xl font-bold uppercase tracking-wider transition-colors shadow-sm flex items-center justify-center gap-2 text-sm"
-                        >
-                            <ClipboardList className="w-4 h-4" />
-                            Unduh Laporan PDF
-                        </button>
-                        <button 
-                            onClick={() => setShowSummaryModal(false)}
-                            className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold uppercase tracking-wider transition-colors shadow-lg shadow-indigo-200 text-sm"
-                        >
-                            Tutup & Lanjutkan Analisis
-                        </button>
+                        <ul className="text-xs font-medium text-slate-600 space-y-2 font-mono">
+                            <li className="flex justify-between"><span className="text-slate-400">A</span> <span className="text-slate-800">= Faktor Pra-eksponensial</span></li>
+                            <li className="flex justify-between"><span className="text-slate-400">e</span> <span className="text-slate-800">= Bilangan Euler (2.718)</span></li>
+                            <li className="flex justify-between"><span className="text-slate-400">Ea</span> <span className="text-slate-800">= Energi Aktivasi (J/mol)</span></li>
+                            <li className="flex justify-between"><span className="text-slate-400">R</span> <span className="text-slate-800">= Konstanta Gas (8.314 J/mol·K)</span></li>
+                            <li className="flex justify-between"><span className="text-slate-400">T</span> <span className="text-slate-800">= Suhu Mutlak (K)</span></li>
+                        </ul>
                     </div>
                 </div>
             </div>
@@ -2103,8 +2336,64 @@ export default function App() {
                     </div>
                 </div>
                 
-                <div className="flex-1 overflow-auto p-6 bg-slate-50">
-                    <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+                <div className="flex-1 overflow-auto p-6 bg-slate-50 flex flex-col gap-6">
+
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div className="bg-white p-4 rounded-xl border border-slate-200 flex flex-col gap-2 shadow-sm">
+                            <div className="flex items-center gap-3 mb-1">
+                                <div className="w-8 h-8 flex-shrink-0 bg-pink-100 rounded-lg flex items-center justify-center">
+                                    <Timer className="w-4 h-4 text-pink-600" />
+                                </div>
+                                <span className="text-xs font-bold text-slate-500 uppercase">Durasi Total</span>
+                            </div>
+                            <span className="text-xl font-black text-slate-900 font-mono pl-1">{timeStepRef.current}s</span>
+                        </div>
+                        <div className="bg-white p-4 rounded-xl border border-slate-200 flex flex-col gap-2 shadow-sm">
+                            <div className="flex items-center gap-3 mb-1">
+                                <div className="w-8 h-8 flex-shrink-0 bg-cyan-100 rounded-lg flex items-center justify-center">
+                                    <Activity className="w-4 h-4 text-cyan-600" />
+                                </div>
+                                <span className="text-xs font-bold text-slate-500 uppercase">Tumbukan Efektif</span>
+                            </div>
+                            <span className="text-xl font-black text-slate-900 font-mono pl-1">{totalCollisionsRef.current}</span>
+                        </div>
+                        <div className="bg-white p-4 rounded-xl border border-slate-200 flex flex-col gap-2 shadow-sm">
+                            <div className="flex items-center gap-3 mb-1">
+                                <div className="w-8 h-8 flex-shrink-0 bg-amber-100 rounded-lg flex items-center justify-center">
+                                    <TrendingUp className="w-4 h-4 text-amber-600" />
+                                </div>
+                                <span className="text-xs font-bold text-slate-500 uppercase">Efisiensi Reaksi</span>
+                            </div>
+                            <span className="text-xl font-black text-slate-900 font-mono pl-1">{Math.max(0, 100 - galatPercentage).toFixed(2)}%</span>
+                        </div>
+                        <div className="bg-white p-4 rounded-xl border border-slate-200 flex flex-col gap-2 shadow-sm">
+                            <div className="flex items-center gap-3 mb-1">
+                                <div className="w-8 h-8 flex-shrink-0 bg-indigo-100 rounded-lg flex items-center justify-center">
+                                    <FlaskConical className="w-4 h-4 text-indigo-600" />
+                                </div>
+                                <span className="text-xs font-bold text-slate-500 uppercase">Produk / Zat Sisa</span>
+                            </div>
+                            <div className="flex flex-col pl-1">
+                                <span className="text-sm font-black text-slate-900 font-mono">
+                                    {(activeBahanData as any).hitungProduk ? 
+                                        (activeBahanData as any).hitungProduk(lajuReaksi, timeStepRef.current) 
+                                        : '-'}
+                                </span>
+                                <span className="text-[10px] uppercase font-bold mt-1 text-slate-500 bg-slate-100 px-2 py-0.5 rounded w-max">
+                                    {(activeBahanData as any).productName}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="bg-emerald-50 border border-emerald-100 p-4 rounded-xl text-left">
+                        <p className="text-xs text-emerald-800 font-medium leading-relaxed">
+                            <span className="font-bold flex items-center gap-1.5 mb-1"><CheckCircle2 className="w-4 h-4" /> Kesimpulan Eksperimen</span>
+                            Berdasarkan simulasi ini, Anda dapat melihat bahwa laju reaksi sangat bergantung pada frekuensi <strong>tumbukan efektif</strong>. Semakin sering partikel bertumbukan dengan energi yang melampaui hambatan aktivasi, semakin cepat produk terbentuk.
+                        </p>
+                    </div>
+
+                    <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm flex-1 flex flex-col">
                         <div className="overflow-x-auto">
                             <table className="w-full text-left border-collapse">
                                 <thead>
@@ -2323,5 +2612,6 @@ export default function App() {
         </div>
         )}
     </div>
+    </>
   );
 }

@@ -43,14 +43,20 @@ export function Particles3D({
     popupsRef,
     width, 
     height,
-    autoRotate = false
+    autoRotate = false,
+    productName,
+    showProduct,
+    productColor
 }: { 
     particlesRef: React.MutableRefObject<Particle[]>,
     debrisRef: React.MutableRefObject<ExplosionDebris[]>,
     popupsRef?: React.MutableRefObject<EnergyPopup[]>,
     width: number,
     height: number,
-    autoRotate?: boolean
+    autoRotate?: boolean,
+    productName?: string,
+    showProduct?: boolean,
+    productColor?: string
 }) {
     return (
         <Canvas camera={{ position: [width / 2, height / 2, width * 1.5], fov: 60 }} className="w-full h-full">
@@ -61,8 +67,24 @@ export function Particles3D({
             <InstancedDebris debrisRef={debrisRef} width={width} height={height} />
             {popupsRef && <ActivePopups popupsRef={popupsRef} />}
             
+            {showProduct && productName && (
+                <Billboard position={[width / 2, height + width/4 + 40, 0]}>
+                    <Text 
+                        fontSize={20}
+                        fontWeight="bold"
+                        color={productColor || "#38bdf8"}
+                        anchorX="center"
+                        anchorY="middle"
+                        outlineWidth={2}
+                        outlineColor="#0f172a"
+                    >
+                        {productName}
+                    </Text>
+                </Billboard>
+            )}
+
             <OrbitControls target={[width / 2, height / 2, 0]} enableDamping={true} autoRotate={autoRotate} autoRotateSpeed={2} />
-            <BoxOutline width={width} height={height} />
+            <TestTubeOutline width={width} height={height} />
         </Canvas>
     );
 }
@@ -121,20 +143,40 @@ function PopupItem({ popup, popupsRef }: { popup: EnergyPopup, popupsRef: React.
     );
 }
 
-function BoxOutline({ width, height }: { width: number, height: number }) {
-    const boxRef = useRef<THREE.LineSegments>(null);
-
-    useMemo(() => {
-        if (!boxRef.current) return;
-        const geometry = new THREE.BoxGeometry(width, height, width);
-        const edges = new THREE.EdgesGeometry(geometry);
-        boxRef.current.geometry = edges;
-    }, [width, height]);
-
+function TestTubeOutline({ width, height }: { width: number, height: number }) {
+    const radius = width * 0.75;
     return (
-        <lineSegments ref={boxRef} position={[width/2, height/2, 0]}>
-            <lineBasicMaterial color="#334155" />
-        </lineSegments>
+        <group position={[width / 2, height / 2, 0]}>
+            {/* Test tube glass body */}
+            <mesh>
+                <cylinderGeometry args={[radius, radius, height + width/2, 32, 1, true]} />
+                <meshStandardMaterial 
+                    color="#e2e8f0" 
+                    transparent 
+                    opacity={0.15} 
+                    roughness={0.1}
+                    metalness={0.1}
+                    side={THREE.DoubleSide}
+                />
+            </mesh>
+            {/* Test tube bottom hemisphere */}
+            <mesh position={[0, -(height + width/2) / 2, 0]}>
+                <sphereGeometry args={[radius, 32, 16, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2]} />
+                <meshStandardMaterial 
+                    color="#e2e8f0" 
+                    transparent 
+                    opacity={0.15} 
+                    roughness={0.1}
+                    metalness={0.1}
+                    side={THREE.DoubleSide}
+                />
+            </mesh>
+            {/* Test tube lip */}
+            <mesh position={[0, (height + width/2) / 2, 0]}>
+                <torusGeometry args={[radius, width / 30, 16, 32]} />
+                <meshStandardMaterial color="#cbd5e1" transparent opacity={0.5} />
+            </mesh>
+        </group>
     );
 }
 
